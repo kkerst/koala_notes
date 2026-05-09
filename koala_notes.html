@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer">
+<title>Koala Notes</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root {
+  --bg0: #0d1117;
+  --bg1: #161b22;
+  --bg2: #21262d;
+  --bg3: #30363d;
+  --border: #30363d;
+  --text0: #e6edf3;
+  --text1: #8b949e;
+  --text2: #6e7681;
+  --accent: #7c6bff;
+  --accent-dim: #3d3680;
+  --green: #3fb950;
+  --red: #f85149;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+.btn-purple {
+  background: var(--accent-dim) !important;
+  border-color: var(--accent) !important;
+  color: var(--text0) !important;
+}
+.btn-purple:hover {
+  background: var(--accent) !important;
+}
+.active-tab {
+  background: var(--accent) !important;
+  border-color: #fff !important;
+}
+body { 
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; 
+  background: var(--bg0); 
+  color: var(--text0); 
+  display: flex; 
+  flex-direction: column; 
+  height: 100vh; /* Add this to fill the window */
+}
+
+#main-container {
+  display: flex;
+  flex: 1; 
+  overflow: hidden;
+}
+
+/* ── top bar ── */
+#topbar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 16px; background: var(--bg1);
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+#topbar .logo { font-size: 14px; font-weight: 700; color: var(--accent); letter-spacing: 0.06em; white-space: nowrap; }
+#note-title-input {
+  flex: 1; font-family: inherit; font-size: 14px; font-weight: 600;
+  background: none; border: none; color: var(--text0); outline: none; min-width: 0;
+}
+#note-title-input::placeholder { color: var(--text2); font-weight: 400; }
+.tb-sep { width: 1px; height: 18px; background: var(--border); flex-shrink: 0; }
+.tb-btn {
+  background: none; border: 1px solid var(--border); border-radius: 5px;
+  color: var(--text1); cursor: pointer; font-size: 12px; padding: 4px 10px;
+  font-family: inherit; white-space: nowrap; transition: all 0.1s;
+}
+.tb-btn:hover { background: var(--bg2); color: var(--text0); }
+.tb-btn.active-tab { background: var(--bg2); color: var(--accent); border-color: var(--accent); }
+#new-note-btn { color: var(--green); border-color: var(--green); }
+#new-note-btn:hover { background: rgba(63, 185, 80, 0.1); }
+#del-note-btn:hover { background: rgba(248, 81, 73, 0.1); color: var(--red); border-color: var(--red); }
+#save-btn { color: var(--accent); border-color: var(--accent); }
+#save-btn:hover { background: rgba(124, 107, 255, 0.1); }
+
+/* ── layout ── */
+#layout { display: flex; flex: 1; overflow: hidden; }
+
+/* ── sidebar ── */
+#sidebar {
+  width: 230px; min-width: 230px; background: var(--bg1);
+  border-right: 1px solid var(--border); display: flex; flex-direction: column;
+  overflow: hidden;
+}
+#sidebar-header {
+  border-bottom: none;
+  display: flex; flex-direction: column; align-items: stretch; flex-shrink: 0; padding: 0;
+}
+#sidebar-header span { font-size: 11px; font-weight: 700; color: var(--text2); letter-spacing: 0.1em; text-transform: uppercase; }
+#add-cat-btn {
+  background: var(--accent-dim); border: 1px solid var(--accent); border-radius: 4px;
+  color: var(--text0); cursor: pointer; font-size: 12px; font-weight: 700;
+  padding: 4px 12px; height: auto; width: auto;
+  display: inline-flex; align-items: center; justify-content: center; line-height: 1;
+  font-family: inherit;
+}
+#add-cat-btn:hover { background: var(--accent); color: var(--text0); }
+#cat-list { flex: 1; overflow-y: auto; padding: 4px 0; }
+#cat-list::-webkit-scrollbar { width: 4px; }
+#cat-list::-webkit-scrollbar-track { background: transparent; }
+#cat-list::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 4px; }
+
+.cat-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 10px 7px 12px; cursor: pointer;
+  color: var(--text1); border-left: 2px solid transparent; transition: all 0.1s;
+  user-select: none;
+}
+.cat-item:hover { background: var(--bg2); color: var(--text0); }
+.cat-item.active { background: var(--bg2); color: var(--text0); border-left-color: var(--accent); }
+.cat-toggle { font-size: 9px; color: var(--text2); width: 10px; flex-shrink: 0; text-align: center; }
+.cat-label { flex: 1; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cat-count { font-size: 10px; color: var(--text2); background: var(--bg3); border-radius: 10px; padding: 1px 6px; flex-shrink: 0; }
+
+.note-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 10px 5px 28px; cursor: pointer;
+  color: var(--text2); border-left: 2px solid transparent; transition: all 0.1s;
+  font-size: 11px; user-select: none;
+}
+.note-item:hover { background: var(--bg2); color: var(--text1); }
+.note-item.active { color: var(--accent); }
+.note-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--bg3); flex-shrink: 0; }
+.note-item-title { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── main content ── */
+#main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+#note-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+#note-editor {
+  flex: 1; display: flex; flex-direction: column; overflow: hidden; padding: 0;
+}
+#note-textarea {
+  flex: 1; width: 100%; font-family: inherit; font-size: 13px;
+  background: var(--bg0); border: none; outline: none; resize: none;
+  color: var(--text0); line-height: 1.75; padding: 20px 24px;
+}
+#note-textarea::placeholder { color: var(--text2); }
+#note-textarea::-webkit-scrollbar { width: 6px; }
+#note-textarea::-webkit-scrollbar-track { background: transparent; }
+#note-textarea::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 4px; }
+
+/* empty state */
+#empty-state {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 10px; color: var(--text2); padding: 40px;
+}
+#empty-state .big { font-size: 36px; opacity: 0.2; }
+#empty-state .msg { font-size: 13px; }
+.add-note-btn {
+  background: none; border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text1); cursor: pointer; font-size: 13px; padding: 7px 18px;
+  font-family: inherit; margin-top: 4px;
+}
+.add-note-btn:hover { background: var(--bg2); color: var(--text0); }
+
+/* ── URL encoder panel ── */
+#url-panel {
+  flex: 1; display: none; flex-direction: column; gap: 14px;
+  padding: 20px 24px; overflow-y: auto; background: var(--bg0);
+}
+#url-panel::-webkit-scrollbar { width: 6px; }
+#url-panel::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 4px; }
+.url-section-label { font-size: 10px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; }
+#url-input, #url-output-box {
+  width: 100%; font-family: inherit; font-size: 12px;
+  background: var(--bg1); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text0); padding: 10px 12px; resize: vertical; min-height: 90px;
+  outline: none; transition: border-color 0.1s;
+}
+#url-input:focus { border-color: var(--accent); }
+#url-output-box { color: var(--green); cursor: default; }
+.url-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.url-controls .label { font-size: 11px; color: var(--text1); }
+.mode-btn {
+  background: none; border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text1); cursor: pointer; font-size: 11px; padding: 4px 12px;
+  font-family: inherit; transition: all 0.1s;
+}
+.mode-btn:hover { background: var(--bg2); color: var(--text0); }
+.mode-btn.sel { background: var(--bg2); color: var(--accent); border-color: var(--accent); }
+.url-output-row { display: flex; align-items: center; justify-content: space-between; }
+.copy-btn {
+  background: none; border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text1); cursor: pointer; font-size: 11px; padding: 3px 12px;
+  font-family: inherit;
+}
+.copy-btn:hover { background: var(--bg2); color: var(--green); border-color: var(--green); }
+.url-tip { font-size: 11px; color: var(--text2); line-height: 1.5; background: var(--bg1); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; }
+.url-tip strong { color: var(--accent); }
+
+/* ── status bar ── */
+#status-bar {
+  padding: 5px 16px; border-top: 1px solid var(--border);
+  background: var(--bg1); display: flex; gap: 16px;
+  font-size: 11px; color: var(--text2); flex-shrink: 0;
+}
+#st-chars { margin-left: auto; }
+
+/* ── scrollbar global ── */
+* { scrollbar-width: thin; scrollbar-color: var(--bg3) transparent; }
+
+/* --- OSINT selection --- */
+#osint-type {
+    background: var(--bg2);
+    color: var(--text0);
+    border: 1px solid var(--border);
+    padding: 10px 15px; /* Added horizontal padding for readability */
+    border-radius: 6px;
+    outline: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    appearance: none; /* Removes default browser arrow */
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 1em;
+    padding-right: 40px; /* Space for the custom arrow */
+}
+
+#osint-type:hover {
+    border-color: var(--accent);
+}
+
+#osint-type:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(138, 75, 175, 0.3); /* Subtle glow matching your purple theme */
+}
+
+/* Style the options inside the dropdown */
+#osint-type option {
+    background: var(--bg0);
+    color: var(--text0);
+    padding: 10px;
+}
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<div id="topbar">
+  <div style="font-weight:bold; color:var(--accent); margin-right:8px;">KOALA_NOTES</div>
+  
+  <button id="tab-notes" class="tb-btn btn-purple" onclick="switchTab('notes')">notes</button>
+  <button id="tab-url" class="tb-btn" onclick="switchTab('url')">encoder</button>
+  <button id="tab-ip" class="tb-btn" onclick="switchTab('ip')">ip lookup</button>
+  <button id="tab-osint" class="tb-btn" onclick="switchTab('osint')">osint hub</button>
+  <button id="tab-exploit" class="tb-btn" onclick="switchTab('exploit')">exploit search</button>
+  <div class="tb-sep"></div>
+  <button id="new-note-btn" class="tb-btn" onclick="newNote()">+ note</button>
+  
+  <div style="flex:1"></div> 
+  
+  <button class="tb-btn btn-purple" onclick="document.getElementById('import-file').click()">import</button>
+  <input type="file" id="import-file" style="display:none" onchange="importFromFile(event)">
+  
+  <button class="tb-btn btn-purple" onclick="saveToFile()">export</button>
+  <button class="tb-btn" style="color:var(--red); border-color:var(--red);" onclick="deleteNote()">delete</button>
+</div>
+
+<div id="main-container">
+
+<!-- Layout -->
+<div id="layout">
+
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div id="sidebar-header" style="flex-direction: column; align-items: stretch; gap: 0; padding: 0;">
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px;">
+        <span style="font-size: 11px; font-weight: 700; color: var(--text2); letter-spacing: 0.1em; text-transform: uppercase;">categories</span>
+        <button id="add-cat-btn" title="Add category" onclick="addCategory()">+ new</button>
+      </div>
+      <div style="padding: 0 12px 10px 12px; border-bottom: 1px solid var(--border);">
+        <input type="text" id="sidebar-search" placeholder="Search notes..."
+          style="width: 100%; background: var(--bg2); border: 1px solid var(--border);
+          color: var(--text0); font-size: 11px; padding: 6px 10px; border-radius: 4px; outline: none;"
+          oninput="render()">
+      </div>
+    </div>
+    <div id="cat-list"></div>
+  </div>
+
+  <!-- Main -->
+  <div id="main">
+     <div id="note-area">
+       <div style="padding: 10px 24px 0 24px; background: var(--bg0);">
+         <input type="text" id="note-title-input" placeholder="Note Title..." style="width: 100%; display: none;">
+       </div>
+
+       <div id="note-editor">
+         <div id="empty-state">
+           <div class="big">◈</div>
+           <div class="msg">select a category and note, or create one</div>
+           <button class="add-note-btn" onclick="newNote()">+ new note</button>
+         </div>
+         <textarea id="note-textarea" placeholder="Write your notes here..." style="display:none" oninput="onNoteInput()"></textarea>
+       </div>
+
+      <!-- URL Encoder -->
+      <div id="url-panel">
+        <div>
+          <div class="url-section-label">input</div>
+          <textarea id="url-input" placeholder="Paste URL, string, or payload to encode/decode..." oninput="runEncode()"></textarea>
+        </div>
+        <div class="url-controls">
+          <span class="label">mode:</span>
+          <button class="mode-btn sel" id="mode-enc" onclick="setMode('enc')">url encode</button>
+          <button class="mode-btn" id="mode-dec" onclick="setMode('dec')">url decode</button>
+          <button class="mode-btn" id="mode-dbl" onclick="setMode('dbl')">double encode</button>
+          <button class="mode-btn" id="mode-full" onclick="setMode('full')">full url encode</button>
+          <button class="mode-btn" id="mode-b64enc" onclick="setMode('b64enc')">base64 encode</button>
+          <button class="mode-btn" id="mode-b64dec" onclick="setMode('b64dec')">base64 decode</button>
+          <button class="mode-btn" id="mode-caesar" onclick="setMode('caesar')">caesar cipher</button>
+        </div>
+        <div id="caesar-controls" style="display:none; align-items:center; gap:10px; flex-wrap:wrap;">
+          <span class="label">shift:</span>
+          <input type="number" id="caesar-shift" value="13" min="1" max="25"
+            style="width:60px; background:var(--bg1); border:1px solid var(--border); color:var(--text0); padding:4px 8px; border-radius:4px; font-family:inherit; font-size:12px; outline:none;"
+            oninput="runEncode()">
+          <button class="mode-btn" id="caesar-dir-enc" onclick="setCaesarDir('enc')" style="background:var(--bg2);color:var(--accent);border-color:var(--accent);">encrypt</button>
+          <button class="mode-btn" id="caesar-dir-dec" onclick="setCaesarDir('dec')">decrypt</button>
+        </div>
+        <div>
+          <div class="url-output-row">
+            <div class="url-section-label">output</div>
+            <button class="copy-btn btn-purple" onclick="copyOutput()">copy</button>
+          </div>
+          <div id="url-output-box">result appears here</div>
+        </div>
+        <div class="url-tip">
+          <strong>url encode</strong> — standard encodeURIComponent (safe chars left as-is)<br>
+          <strong>url decode</strong> — decodes %XX and + sequences<br>
+          <strong>double encode</strong> — encode twice, useful for WAF bypass<br>
+          <strong>full url encode</strong> — encodes every character including alphanumerics (%XX format)<br>
+          <strong>base64 encode/decode</strong> — converts to/from Base64 (UTF-8 safe)<br>
+          <strong>caesar cipher</strong> — shifts each letter by N positions (ROT13 = shift 13)
+        </div>
+      </div>
+
+      <div id="ip-panel" style="flex: 1; display: none; flex-direction: column; gap: 20px; padding: 20px 24px; overflow-y: auto; background: var(--bg0);">
+  
+        <div>
+          <div class="url-section-label">IP Address</div>
+          <div style="display: flex; gap: 10px;">
+            <input type="text" id="ip-input" placeholder="8.8.8.8" style="flex: 1; background: var(--bg1); border: 1px solid var(--border); color: var(--text0); padding: 12px; border-radius: 6px; outline: none; font-size: 14px;">
+            <button class="tb-btn btn-purple" style="padding: 0 20px;" onclick="lookupIP()">Lookup</button>
+          </div>
+        </div>
+  
+        <div>
+          <div class="url-section-label">Location Data (GPS)</div>
+          <div id="ip-output" class="url-tip" style="width: 100%; min-height: 120px; white-space: pre-wrap; font-family: monospace; font-size: 14px; color: var(--text0); border: 1px solid var(--border); padding: 15px;">Results...</div>
+        </div>
+
+        <div>
+          <div class="url-section-label">WHOIS / Network Registration</div>
+          <div id="whois-output" class="url-tip" style="width: 100%; min-height: 200px; white-space: pre-wrap; font-family: monospace; font-size: 14px; color: var(--text0); line-height: 1.6; border: 1px solid var(--border); padding: 15px;">Technical data...</div>
+        </div>
+
+        <div>
+          <div class="url-section-label">Visual Location</div>
+          <div id="ip-map" style="height: 400px; width: 100%; border-radius: 8px; border: 1px solid var(--border); background: var(--bg1);"></div>
+        </div>
+
+      </div>
+
+
+	<div id="osint-panel" style="flex: 1; display: none; flex-direction: column; gap: 20px; padding: 20px 24px; overflow-y: auto; background: var(--bg0);">
+  
+	  <div style="border-bottom: 1px solid var(--border); padding-bottom: 15px;">
+	    <h2 style="color: var(--accent); font-size: 18px;">OSINT Command Center</h2>
+	    <p style="font-size: 12px; color: var(--text2);">Direct-launch recon tools (Bypasses Iframe/CORS blocks)</p>
+	  </div>
+
+	<div style="display: flex; gap: 12px; background: var(--bg1); padding: 18px; border-radius: 8px; border: 1px solid var(--border); align-items: center;">
+    
+	    <select id="osint-type">
+	      <option value="username">Username</option>
+	      <option value="email">Email</option>
+	      <option value="domain">Domain</option>
+	      <option value="person">Full Name</option>
+	      <option value="phone">Phone Number</option>
+	      <option value="devices">Devices / IOT</option>
+	    </select>
+	    <input type="text" id="osint-input" placeholder="Enter target..." 
+	           style="flex: 1; background: var(--bg2); border: 1px solid var(--border); color: var(--text0); padding: 12px 15px; border-radius: 6px; outline: none;"
+	           onkeypress="if(event.key==='Enter') executeOsint()">
+		
+	    <button class="tb-btn btn-purple" style="padding: 12px 25px; height: 44px;" onclick="executeOsint()">
+	        Prepare Recon
+	    </button>
+	</div>
+
+
+	  <div id="osint-content">
+	    <div class="url-tip">Enter a target above to generate your investigation board.</div>
+	  </div>
+	</div>
+
+	<div id="exploit-panel" style="flex: 1; display: none; flex-direction: column; gap: 20px; padding: 20px 24px; overflow-y: auto; background: var(--bg0);">
+	  <div style="border-bottom: 1px solid var(--border); padding-bottom: 15px;">
+	    <h2 style="color: var(--accent); font-size: 18px;">Exploit Database Search</h2>
+	    <p style="font-size: 12px; color: var(--text2);">Search the major exploit repositories simultaneously.</p>
+	  </div>
+
+	  <div style="display: flex; gap: 12px; background: var(--bg1); padding: 18px; border-radius: 8px; border: 1px solid var(--border); align-items: center;">
+	    <input type="text" id="exploit-query" placeholder="e.g. EternalBlue, WordPress 5.0, CVE-2023-..." 
+	           style="flex: 1; background: var(--bg2); border: 1px solid var(--border); color: var(--text0); padding: 12px 15px; border-radius: 6px; outline: none;"
+	           onkeypress="if(event.key==='Enter') runExploitSearch()">
+	    <button class="tb-btn btn-purple" style="padding: 12px 25px; height: 44px;" onclick="runExploitSearch()">Search DBs</button>
+	  </div>
+
+	  <div id="exploit-results-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; margin-top: 10px;">
+	    <!-- Cards will be generated here -->
+	  </div>
+	</div>
+
+
+    </div>
+
+    <!-- Status bar -->
+    <div id="status-bar">
+      <span id="st-cat">—</span>
+      <span id="st-note">no note selected</span>
+      <span id="st-chars"></span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── OSINT ──────────────────────────────────────────────────────────────────
+
+const osintSources = {
+    username: [
+        { name: 'WhatsMyName', url: 'https://whatsmyname.app/?q=' },
+        { name: 'Instant Username', url: 'https://instantusername.com/?q=' },
+        { name: 'Social Search (Google)', url: 'https://www.google.com/search?q=', dork: 'site:instagram.com OR site:twitter.com OR site:reddit.com', isDork: true },
+        { name: 'Linktree Search (Gooogle)', url: 'https://www.google.com/search?q=', dork: 'site:linktr.ee', isDork: true }
+    ],
+    email: [
+        { name: 'EmailRep.io (API key required)', url: 'https://emailrep.io/query/' },
+        { name: 'Hunter.io', url: 'https://hunter.io/email-verifier/' },
+        { name: 'IntelX', url: 'https://intelx.io/?s=' },
+        { name: 'HaveIBeenPwned (JSON)', url: 'https://haveibeenpwned.com/unifiedsearch/' },
+        { name: 'Google (Leaked)', url: 'https://www.google.com/search?q=', dork: '"', suffix: '"', isDork: true },
+        { name: 'EPIOS (Google/Photos)', url: 'https://epieos.com/?q=' }
+    ],
+    domain: [
+        { name: 'HackerTarget (DNS)', url: 'https://hackertarget.com/find-dns-host-records/?q=' },
+        { name: 'SecurityTrails', url: 'https://securitytrails.com/domain/' },
+        { name: 'Google Cert Search', url: 'https://transparencyreport.google.com/https/certificates?cert_search=include_subdomains:true;domain:' },
+        { name: 'CRT.sh', url: 'https://crt.sh/?q=' },
+        { name: 'ViewDNS', url: 'https://viewdns.info/dnsrecord/?domain=' },
+        { name: 'BuiltWith', url: 'https://builtwith.com/' },
+        { name: 'Shodan (Domain)', url: 'https://www.shodan.io/search?query=hostname:' },
+        { name: 'UrlScan.io', url: 'https://urlscan.io/search/#page.domain:' }
+    ],
+    person: [
+        { name: 'TruePeopleSearch', url: 'https://www.truepeoplesearch.com/results?name=' },
+        { name: 'ThatThem', url: 'https://thatsthem.com/name/' },
+        { name: 'LinkedIn (Google)', url: 'https://www.google.com/search?q=', dork: 'site:linkedin.com/in/', isDork: true },
+        { name: 'VoterRecords', url: 'https://voterrecords.com/voters/' }
+    ],
+    phone: [
+        { name: 'ThatsThem (Phone)', url: 'https://thatsthem.com/phone/' },
+        { name: 'Google Reverse Lookup', url: 'https://www.google.com/search?q=', dork: '"', suffix: '"', isDork: true },
+        { name: 'USPhoneBook', url: 'https://www.usphonebook.com/' }
+    ],
+    devices: [
+        { name: 'Shodan (General)', url: 'https://www.shodan.io/search?query=' },
+        { name: 'Censys Search', url: 'https://search.censys.io/search?resource=hosts&q=' },
+        { name: 'Zoomeye', url: 'https://www.zoomeye.org/searchResult?q=' },
+        { name: 'Wigle (WiFi/Maps)', url: 'https://wigle.net/map?ssids=' },
+        { name: 'Dork: Open Cams', url: 'https://www.google.com/search?q=', dork: 'inurl:"view.shtml"', isDork: true },
+        { name: 'Dork: Printers', url: 'https://www.google.com/search?q=', dork: 'inurl:hp/device/this.LCDispatcher', isDork: true },
+        { name: 'Dork: Open Directories', url: 'https://www.google.com/search?q=', dork: 'intitle:"index of"', isDork: true },
+        { name: 'Dork: Log Files', url: 'https://www.google.com/search?q=', dork: 'ext:log', isDork: true },
+        { name: 'Dork: Exposed RDP', url: 'https://www.google.com/search?q=', dork: 'filetype:rdp "full address:s:"', isDork: true }
+    ]
+};
+
+function executeOsint() {
+    const val = document.getElementById('osint-input').value.trim();
+    const type = document.getElementById('osint-type').value;
+    const container = document.getElementById('osint-content');
+    
+    if (!val) return;
+    container.innerHTML = ''; 
+
+    const grid = document.createElement('div');
+    grid.style.cssText = "display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; margin-top: 10px;";
+    container.appendChild(grid);
+
+    osintSources[type].forEach(src => {
+        let fullUrl = "";
+        const suffix = src.suffix || "";
+        
+        if (src.isDork) {
+            // Build: BaseURL + Encoded(Dork + UserInput + Suffix)
+            const query = (src.dork ? src.dork + " " : "") + val + suffix;
+            fullUrl = src.url + encodeURIComponent(query);
+        } else {
+            // Standard: BaseURL + Encoded(UserInput) + Suffix
+            fullUrl = src.url + encodeURIComponent(val) + suffix;
+        }
+
+        const card = document.createElement('div');
+        card.style.cssText = "background: var(--bg1); border: 1px solid var(--border); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; gap: 12px;";
+        
+        card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h4 style="color: var(--text0); margin: 0;">${src.name}</h4>
+            </div>
+            <p style="font-size: 10px; color: var(--text2); font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.4;">
+                ${fullUrl}
+            </p>
+            <a href="${fullUrl}" target="_blank" class="tb-btn btn-purple" 
+               style="text-decoration: none; text-align: center; display: block; line-height: 20px;">
+                Launch Recon ↗
+            </a>
+        `;
+        grid.appendChild(card);
+    });
+}
+
+function getIcon(type) {
+    const icons = { 
+        username: '👤', 
+        email: '📧', 
+        domain: '🌐', 
+        person: '🆔', 
+        phone: '📞',
+        devices: '🛡️' 
+    };
+    return icons[type] || '🔍';
+}
+
+// ── State ──────────────────────────────────────────────────────────────────
+let cats = [];
+let activeCat = null;
+let activeNote = null;
+let openCats = {};
+let urlMode = 'enc';
+let currentTab = 'notes';
+let saveTimer = null;
+
+// ── Init & Lifecycle ───────────────────────────────────────────────────────
+function init() {
+  try {
+    const saved = localStorage.getItem('koala_notes_v3');
+    if (saved) {
+      const data = JSON.parse(saved);
+      if (data && Array.isArray(data.cats) && data.cats.length > 0) {
+        cats = data.cats;
+        openCats = data.openCats || {};
+        activeCat = cats.some(c => c.id === data.activeCat) ? data.activeCat : cats[0].id;
+        activeNote = data.activeNote || null;
+      } else { loadDefaults(); }
+    } else { loadDefaults(); }
+  } catch (e) { loadDefaults(); }
+
+  render();
+  updateEditor();
+  attachListeners(); 
+}
+
+function loadDefaults() {
+  cats = [];
+  openCats = {};
+  activeCat = null;
+  activeNote = null;
+  persist();
+}
+
+function persist() {
+  try {
+    localStorage.setItem('koala_notes_v3', JSON.stringify({ cats, openCats, activeCat, activeNote }));
+  } catch(e) {}
+}
+
+function schedulePersist() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(persist, 800);
+}
+
+// ── Event Listeners ────────────────────────────────────────────────────────
+function attachListeners() {
+  const titleEl = document.getElementById('note-title-input');
+  const bodyEl = document.getElementById('note-textarea');
+
+  if (titleEl) {
+     titleEl.oninput = function() {
+       const cat = cats.find(c => c.id === activeCat);
+       const note = cat && activeNote ? cat.notes.find(n => n.id === activeNote) : null;
+       if (!note) return;
+       note.title = this.value;
+    
+       // Update the sidebar and status bar immediately
+       render(); 
+       const stNote = document.getElementById('st-note');
+       if (stNote) stNote.textContent = note.title || 'untitled';
+       schedulePersist();
+     };
+  }
+
+  if (bodyEl) {
+    bodyEl.oninput = function() {
+      const cat = cats.find(c => c.id === activeCat);
+      const note = cat && activeNote ? cat.notes.find(n => n.id === activeNote) : null;
+      if (!note) return;
+      note.body = this.value;
+      document.getElementById('st-chars').textContent = note.body.length + ' chars';
+      schedulePersist();
+    };
+  }
+}
+
+// ── Render sidebar ─────────────────────────────────────────────────────────
+function render() {
+  const cl = document.getElementById('cat-list');
+  if (!cl) return;
+  cl.innerHTML = '';
+  
+  const searchTerm = document.getElementById('sidebar-search')?.value.toLowerCase() || '';
+
+  cats.sort((a, b) => a.label.localeCompare(b.label));
+
+  cats.forEach(cat => {
+    // Filter notes based on title OR body content
+    const filteredNotes = cat.notes.filter(n => 
+        (n.title || '').toLowerCase().includes(searchTerm) || 
+        (n.body || '').toLowerCase().includes(searchTerm)
+    );
+
+    if (searchTerm && filteredNotes.length === 0) return;
+
+    const isOpen = searchTerm ? true : openCats[cat.id];
+    const isActive = activeCat === cat.id;
+    const row = document.createElement('div');
+    row.className = 'cat-item' + (isActive ? ' active' : '');
+    
+    const displayCount = searchTerm ? filteredNotes.length : cat.notes.length;
+    
+    row.innerHTML = `<span class="cat-toggle">${displayCount ? (isOpen ? '▾' : '▸') : ' '}</span><span class="cat-label">${esc(cat.label)}</span><span class="cat-count">${displayCount}</span>`;
+    
+    row.onclick = () => {
+      activeCat = cat.id;
+      if (!searchTerm && cat.notes.length) openCats[cat.id] = !openCats[cat.id];
+      render();
+      updateEditor();
+    };
+    cl.appendChild(row);
+
+    if (isOpen) {
+      filteredNotes.forEach(note => {
+        const nr = document.createElement('div');
+        nr.className = 'note-item' + (activeNote === note.id ? ' active' : '');
+        nr.innerHTML = `<span class="note-dot"></span><span class="note-item-title">${esc(note.title || 'untitled')}</span>`;
+        nr.onclick = (e) => {
+          e.stopPropagation();
+          activeCat = cat.id;
+          activeNote = note.id;
+          switchTab('notes');
+          render();
+          updateEditor();
+          persist();
+        };
+        cl.appendChild(nr);
+      });
+    }
+  });
+
+  const cat = cats.find(c => c.id === activeCat);
+  document.getElementById('st-cat').textContent = cat ? cat.label : '—';
+}
+
+// ── UI Updates ─────────────────────────────────────────────────────────────
+function updateEditor() {
+  const cat = cats.find(c => c.id === activeCat);
+  const note = cat && activeNote ? cat.notes.find(n => n.id === activeNote) : null;
+  
+  const ta = document.getElementById('note-textarea');
+  const es = document.getElementById('empty-state');
+  const ti = document.getElementById('note-title-input');
+
+  if (note) {
+    // NOTE ACTIVE: Show the title field and the text area
+    if (es) es.style.display = 'none';
+    if (ta) {
+      ta.style.display = 'block';
+      ta.value = note.body || '';
+    }
+    if (ti) {
+      ti.style.display = 'block'; // THIS BRINGS THE FIELD BACK
+      ti.value = note.title || '';
+    }
+    
+    document.getElementById('st-note').textContent = note.title || 'untitled';
+    document.getElementById('st-chars').textContent = (note.body || '').length + ' chars';
+  } else {
+    // NO NOTE ACTIVE: Show the big button, hide the title and text area
+    if (es) {
+      es.style.display = 'flex';
+      const msgEl = es.querySelector('.msg');
+      if (msgEl) {
+        msgEl.textContent = cat 
+          ? `Category "${cat.label}" selected. Click below to add a note.` 
+          : "Select a category and note, or create one";
+      }
+    }
+    if (ta) ta.style.display = 'none';
+    if (ti) {
+      ti.style.display = 'none'; // Hide it when no note is active
+      ti.value = '';
+    }
+    
+    document.getElementById('st-note').textContent = 'no note selected';
+    document.getElementById('st-chars').textContent = '';
+  }
+}
+
+
+function switchTab(tab) {
+  currentTab = tab;
+
+  // List every tab key you have
+  const tabs = ['notes', 'url', 'ip', 'osint', 'exploit'];
+
+  tabs.forEach(t => {
+      // 1. Handle Button Styling
+      const btn = document.getElementById(`tab-${t}`);
+      if (btn) {
+          // Toggle your active class (check if yours is 'active-tab' or 'btn-purple')
+          btn.classList.toggle('btn-purple', tab === t); 
+      }
+      
+      // 2. Handle Panel Visibility
+      // Notes usually uses 'note-editor', others use '[name]-panel'
+      const panelId = (t === 'notes') ? 'note-editor' : `${t}-panel`;
+      const panel = document.getElementById(panelId);
+      
+      if (panel) {
+          panel.style.display = (tab === t) ? 'flex' : 'none';
+      }
+  });
+
+  // Special case for Leaflet map resizing
+  if (tab === 'ip' && map) {
+      setTimeout(() => map.invalidateSize(), 200);
+  }
+}
+
+// ── IP Map ────────────────────────────────────────────────────────────────
+
+let map = null; // Store the map instance globally
+
+async function lookupIP() {
+  const inputVal = document.getElementById('ip-input').value.trim();
+  const locOutput = document.getElementById('ip-output');
+  const whoisOutput = document.getElementById('whois-output');
+  
+  if (!inputVal) return;
+  locOutput.textContent = "Fetching Location...";
+  whoisOutput.textContent = "Parsing Network Data...";
+
+  try {
+    const locRes = await fetch(`http://ip-api.com/json/${inputVal}`);
+    const locData = await locRes.json();
+
+    if (locData.status === "fail") {
+      locOutput.textContent = `Error: ${locData.message}`;
+      return; 
+    }
+
+    const resolvedIP = locData.query; 
+    locOutput.textContent = `Target: ${inputVal} (${resolvedIP})\nLoc: ${locData.city}, ${locData.regionName}\nISP: ${locData.isp}\nGPS: ${locData.lat}, ${locData.lon}`;
+
+    if (map === null) {
+      map = L.map('ip-map').setView([locData.lat, locData.lon], 10);
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}').addTo(map);
+    } else {
+      map.setView([locData.lat, locData.lon], 10);
+    }
+    map.eachLayer(l => { if (l instanceof L.Marker) map.removeLayer(l); });
+    L.marker([locData.lat, locData.lon]).addTo(map);
+    setTimeout(() => map.invalidateSize(), 200);
+
+    try {
+      const rdapRes = await fetch(`https://rdap.db.ripe.net/ip/${resolvedIP}`);
+      const d = await rdapRes.json();
+      
+      let out = `NETWORK: ${d.name || 'N/A'}\n`;
+      out += `RANGE:   ${d.startAddress} - ${d.endAddress}\n`;
+      out += `CIDR:    ${d.cidr0_cidrs ? d.cidr0_cidrs.map(c => c.v4prefix+'/'+c.length).join(', ') : 'N/A'}\n`;
+      out += `TYPE:    ${d.type || 'N/A'}\n\n`;
+
+      // Helper to find data inside the "vcard" arrays
+      const getVcardInfo = (vcard, field) => {
+        const item = vcard[1].find(prop => prop[0] === field);
+        return item ? (typeof item[3] === 'object' ? item[3].label || item[3].join(', ') : item[3]) : null;
+      };
+
+      // Crawl Entities (Contacts, Orgs, NOCs)
+      if (d.entities) {
+        out += `--- CONTACTS & ENTITIES ---\n`;
+        const processEntities = (entities) => {
+          entities.forEach(e => {
+            const roles = (e.roles || []).join(', ').toUpperCase();
+            out += `[${roles || 'ENTITY'}] ${e.handle || ''}\n`;
+            
+            if (e.vcardArray) {
+              const name = getVcardInfo(e.vcardArray, 'fn');
+              const email = getVcardInfo(e.vcardArray, 'email');
+              const tel = getVcardInfo(e.vcardArray, 'tel');
+              const adr = getVcardInfo(e.vcardArray, 'adr');
+              
+              if (name)  out += ` Name:    ${name}\n`;
+              if (email) out += ` Email:   ${email}\n`;
+              if (tel)   out += ` Phone:   ${tel}\n`;
+              if (adr)   out += ` Address: ${adr.replace(/\n/g, ', ')}\n`;
+            }
+            out += `\n`;
+            if (e.entities) processEntities(e.entities); // Deep crawl sub-entities
+          });
+        };
+        processEntities(d.entities);
+      }
+
+      // Crawl Remarks
+      if (d.remarks) {
+        out += `--- TECHNICAL REMARKS ---\n`;
+        d.remarks.forEach(r => {
+          out += `${r.title ? '[' + r.title + '] ' : ''}${r.description.join(' ')}\n`;
+        });
+      }
+
+      whoisOutput.textContent = out;
+    } catch (e) {
+      whoisOutput.textContent = "WHOIS Error: " + e.message;
+    }
+  } catch (err) {
+    locOutput.textContent = "Connection Error.";
+  }
+}
+
+// ── Actions ────────────────────────────────────────────────────────────────
+function newNote() {
+  // If no category is selected, try to default to the first one available
+  if (!activeCat && cats.length > 0) {
+    activeCat = cats[0].id;
+  }
+  
+  const cat = cats.find(c => c.id === activeCat);
+  if (!cat) {
+    alert("Please create a category first!");
+    return;
+  }
+
+  const note = { id: genId(), title: 'new note', body: '' };
+  cat.notes.push(note);
+  openCats[cat.id] = true;
+  activeNote = note.id;
+  
+  switchTab('notes');
+  
+  render();
+  updateEditor();
+  persist();
+}
+
+function deleteNote() {
+  const catIndex = cats.findIndex(c => c.id === activeCat);
+  if (catIndex === -1) return;
+  if (activeNote) {
+    const note = cats[catIndex].notes.find(n => n.id === activeNote);
+    if (!confirm(`Delete note "${note?.title}"?`)) return;
+    cats[catIndex].notes = cats[catIndex].notes.filter(n => n.id !== activeNote);
+    activeNote = null;
+  } else {
+    if (!confirm(`Delete category "${cats[catIndex].label}"?`)) return;
+    cats.splice(catIndex, 1);
+    activeCat = cats[0]?.id || null;
+  }
+  render();
+  updateEditor();
+  persist();
+}
+
+function addCategory() {
+  // Remove any existing inline form first
+  const existing = document.getElementById('new-cat-form');
+  if (existing) { existing.remove(); return; }
+
+  const form = document.createElement('div');
+  form.id = 'new-cat-form';
+  form.style.cssText = 'padding: 8px 12px; border-bottom: 1px solid var(--border); display: flex; gap: 6px;';
+  form.innerHTML = `
+    <input id="new-cat-input" type="text" placeholder="Category name..."
+      style="flex:1; background:var(--bg2); border:1px solid var(--accent); color:var(--text0);
+             font-size:11px; padding:5px 8px; border-radius:4px; outline:none; font-family:inherit;">
+    <button onclick="confirmAddCategory()"
+      style="background:var(--accent-dim); border:1px solid var(--accent); color:var(--text0);
+             border-radius:4px; cursor:pointer; font-size:11px; padding:4px 10px; font-family:inherit;">ok</button>
+    <button onclick="document.getElementById('new-cat-form').remove()"
+      style="background:none; border:1px solid var(--border); color:var(--text1);
+             border-radius:4px; cursor:pointer; font-size:11px; padding:4px 8px; font-family:inherit;">✕</button>
+  `;
+
+  // Insert right above cat-list
+  const catList = document.getElementById('cat-list');
+  catList.parentNode.insertBefore(form, catList);
+
+  const inp = document.getElementById('new-cat-input');
+  inp.focus();
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') confirmAddCategory();
+    if (e.key === 'Escape') form.remove();
+  });
+}
+
+function confirmAddCategory() {
+  const inp = document.getElementById('new-cat-input');
+  const name = inp ? inp.value.trim() : '';
+  if (!name) return;
+  const id = 'cat_' + genId();
+  cats.push({ id, label: name, notes: [] });
+  activeCat = id; activeNote = null;
+  document.getElementById('new-cat-form')?.remove();
+  render(); updateEditor(); persist();
+}
+
+document.getElementById('add-cat-btn').onclick = addCategory;
+
+// ── URL Encoder ────────────────────────────────────────────────────────────
+function setMode(m) {
+  urlMode = m;
+  ['enc', 'dec', 'dbl', 'full', 'b64enc', 'b64dec', 'caesar'].forEach(x => {
+    const el = document.getElementById('mode-' + x);
+    if (el) el.className = 'mode-btn' + (x === m ? ' sel' : '');
+  });
+  const cc = document.getElementById('caesar-controls');
+  if (cc) cc.style.display = (m === 'caesar') ? 'flex' : 'none';
+  runEncode();
+}
+
+let caesarDir = 'enc';
+function setCaesarDir(dir) {
+  caesarDir = dir;
+  document.getElementById('caesar-dir-enc').style.cssText = dir === 'enc' ? 'background:var(--bg2);color:var(--accent);border-color:var(--accent);' : '';
+  document.getElementById('caesar-dir-dec').style.cssText = dir === 'dec' ? 'background:var(--bg2);color:var(--accent);border-color:var(--accent);' : '';
+  runEncode();
+}
+
+function caesarShift(text, shift, decrypt) {
+  const s = ((decrypt ? -shift : shift) % 26 + 26) % 26;
+  return text.replace(/[a-zA-Z]/g, c => {
+    const base = c <= 'Z' ? 65 : 97;
+    return String.fromCharCode((c.charCodeAt(0) - base + s) % 26 + base);
+  });
+}
+
+function runEncode() {
+  const inp = document.getElementById('url-input').value;
+  let out = '';
+  try {
+    if (urlMode === 'enc') out = encodeURIComponent(inp).replace(/[!'()*]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase());
+    else if (urlMode === 'dec') out = decodeURIComponent(inp.replace(/\+/g, ' '));
+    else if (urlMode === 'dbl') out = encodeURIComponent(encodeURIComponent(inp).replace(/[!'()*]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase()));
+    else if (urlMode === 'full') out = Array.from(inp).map(c => '%' + c.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')).join('');
+    else if (urlMode === 'b64enc') out = btoa(unescape(encodeURIComponent(inp)));
+    else if (urlMode === 'b64dec') out = decodeURIComponent(escape(atob(inp)));
+    else if (urlMode === 'caesar') {
+      const shift = parseInt(document.getElementById('caesar-shift').value) || 13;
+      out = caesarShift(inp, shift, caesarDir === 'dec');
+    }
+  } catch(e) { out = '[error: ' + e.message + ']'; }
+  document.getElementById('url-output-box').textContent = out || 'result appears here';
+}
+
+function copyOutput() {
+  const t = document.getElementById('url-output-box').textContent;
+  if (!t || t === 'result appears here') return;
+  navigator.clipboard.writeText(t).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    const orig = btn.textContent;
+    btn.textContent = 'copied!';
+    setTimeout(() => btn.textContent = orig, 1200);
+  });
+}
+
+// ── File I/O ───────────────────────────────────────────────────────────────
+function saveToFile() {
+  persist();
+  const data = JSON.stringify({ cats, openCats }, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'koala_notes_backup.json';
+  a.click();
+}
+
+function importFromFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (data.cats && confirm("Overwrite current notes?")) {
+        cats = data.cats; openCats = data.openCats || {};
+        activeCat = cats[0]?.id || null; activeNote = null;
+        persist(); render(); updateEditor();
+      }
+    } catch (err) { alert("Invalid file."); }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+// ── Exploit-db ──────────────────────────────────────────────────────
+
+function runExploitSearch() {
+    const query = document.getElementById('exploit-query').value.trim();
+    if (!query) return;
+
+    const grid = document.getElementById('exploit-results-grid');
+    grid.innerHTML = ''; 
+
+    const engines = [
+        { 
+            name: 'Exploit-DB', 
+            // This specific parameter executes the search on page load
+            url: `https://www.exploit-db.com/search?q=${encodeURIComponent(query)}`, 
+            desc: 'Direct search against the EDB description field.' 
+        },
+        { 
+            name: 'Packet Storm', 
+            url: `https://packetstormsecurity.com/search/?q=${encodeURIComponent(query)}`, 
+            desc: 'Direct query for POCs and security advisories.' 
+        },
+        { 
+            name: 'GitHub (POCs)', 
+            url: `https://github.com/search?q=${encodeURIComponent(query)}+exploit+OR+poc&type=repositories`, 
+            desc: 'Search for community-hosted exploit code.' 
+        },
+        { 
+            name: 'Google Dork (EDB)', 
+            // Bypass EDB's internal search issues by using Google's index
+            url: `https://www.google.com/search?q=site:exploit-db.com+${encodeURIComponent(query)}`, 
+            desc: 'Uses Google to index EDB—often more reliable.' 
+        }
+    ];
+
+    engines.forEach(engine => {
+        const card = document.createElement('div');
+        card.style.cssText = "background: var(--bg1); border: 1px solid var(--border); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; gap: 12px;";
+        card.innerHTML = `
+            <h4 style="color: var(--accent); margin: 0;">${engine.name}</h4>
+            <p style="font-size: 12px; color: var(--text1); margin: 0;">${engine.desc}</p>
+            <a href="${engine.url}" target="_blank" class="tb-btn btn-purple" 
+               style="text-decoration: none; text-align: center; display: block; line-height: 20px;">
+                Execute Search ↗
+            </a>
+        `;
+        grid.appendChild(card);
+    });
+}
+
+
+
+// ── Utils & Shortcuts ──────────────────────────────────────────────────────
+function genId() { return Math.random().toString(36).slice(2, 10); }
+function esc(s) { return !s ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'n') { e.preventDefault(); newNote(); }
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); persist(); }
+});
+
+init();
+</script>
+</body>
+</html>
