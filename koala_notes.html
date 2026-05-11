@@ -511,8 +511,11 @@ function executeOsint() {
         
         const extensions = [
             'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 
-            'txt', 'rtf', 'log', 'bak', 'zip', 'rar', '7z', 
-            'sql', 'env', 'config', 'php', 'json'
+            'txt', 'rtf', 'log', 'bak', 'zip', 'rar', '7z',
+            'tar', 'tar.gz', 'bak', 'yml', 'yaml', 'ini', 'sh', 
+            'bash', 'properties', 'sql', 'env', 'config', 'php', 'json',
+            'csv', 'xml', 'db', 'sqlite', 'ora', 'swp', 'old', '~', 'dist',
+            'git', 'svn', 'aspx', 'jsp', 'cfm', 'err', 'wrn'
         ];
 
         let extHtml = extensions.map(ext => `
