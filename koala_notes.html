@@ -252,6 +252,7 @@ body {
   <button id="tab-url" class="tb-btn" onclick="switchTab('url')">encoder</button>
   <button id="tab-ip" class="tb-btn" onclick="switchTab('ip')">ip lookup</button>
   <button id="tab-osint" class="tb-btn" onclick="switchTab('osint')">osint hub</button>
+  <button id="tab-active" class="tb-btn" onclick="switchTab('active')">active recon</button>
   <button id="tab-exploit" class="tb-btn" onclick="switchTab('exploit')">exploit search</button>
   <div class="tb-sep"></div>
   <button id="new-note-btn" class="tb-btn" onclick="newNote()">+ note</button>
@@ -379,7 +380,7 @@ body {
 	    <p style="font-size: 12px; color: var(--text2);">Direct-launch recon tools (Bypasses Iframe/CORS blocks)</p>
 	  </div>
 
-	<div style="display: flex; gap: 12px; background: var(--bg1); padding: 18px; border-radius: 8px; border: 1px solid var(--border); align-items: center;">
+	  <div style="display: flex; gap: 12px; background: var(--bg1); padding: 18px; border-radius: 8px; border: 1px solid var(--border); align-items: center;">
     
 	    <select id="osint-type">
 	      <option value="username">Username</option>
@@ -397,13 +398,34 @@ body {
 	    <button class="tb-btn btn-purple" style="padding: 12px 25px; height: 44px;" onclick="executeOsint()">
 	        Prepare Recon
 	    </button>
-	</div>
+	  </div>
 
 
 	  <div id="osint-content">
 	    <div class="url-tip">Enter a target above to generate your investigation board.</div>
 	  </div>
 	</div>
+
+        <div id="active-panel" style="flex: 1; display: none; flex-direction: column; gap: 20px; padding: 20px 24px; overflow-y: auto; background: var(--bg0);">
+          <div style="border-bottom: 1px solid var(--border); padding-bottom: 15px;">
+            <h2 style="color: var(--red); font-size: 18px;">Active Reconnaissance</h2>
+            <p style="font-size: 12px; color: var(--text2);">Direct interaction tools. Note: These actions are visible in server logs. May result in false positives.</p>
+          </div>
+        
+          <div style="display: flex; gap: 12px; background: var(--bg1); padding: 18px; border-radius: 8px; border: 1px solid var(--border); align-items: center;">
+            <input type="text" id="active-input" placeholder="Enter target domain (e.g. example.com)..." 
+                   style="flex: 1; background: var(--bg2); border: 1px solid var(--border); color: var(--text0); padding: 12px 15px; border-radius: 6px; outline: none;">
+            <button class="tb-btn btn-purple" style="padding: 12px 25px; height: 44px; border-color: var(--red) !important;" onclick="runActiveScanner()">
+                Start Path Discovery
+            </button>
+          </div>
+
+          <div id="active-content">
+            <div id="scanner-results" style="display: flex; flex-direction: column; gap: 8px; font-family: monospace; font-size: 12px;">
+                <div class="url-tip">Results will appear here once the scan begins.</div>
+            </div>
+          </div>
+        </div>
 
 	<div id="exploit-panel" style="flex: 1; display: none; flex-direction: column; gap: 20px; padding: 20px 24px; overflow-y: auto; background: var(--bg0);">
 	  <div style="border-bottom: 1px solid var(--border); padding-bottom: 15px;">
@@ -493,8 +515,78 @@ const osintSources = {
             isDocumentDork: true,
             desc: 'Search for sensitive filetypes on the target domain.' 
         }
-    ],
+    ]
 };
+
+async function probePath(domain, path) {
+    try {
+        // 'no-cors' allows the request to reach the server, 
+        // but the browser hides the response body/status.
+        await fetch(`https://${domain}/${path}`, { 
+            method: 'GET', // Using GET can sometimes be more reliable than HEAD for no-cors
+            mode: 'no-cors',
+            cache: 'no-cache'
+        });
+        
+        // If the fetch didn't throw an error, we consider it a hit
+        return { path, status: 'PROBED', color: 'var(--green)' };
+    } catch (e) {
+        // Network errors, DNS failures, or refused connections go here
+        return { path, status: 'FAILED' };
+    }
+}
+
+const commonLeaks = [
+    'config.php', '.htaccess', 'sitemap.xml', 'wp-config.php', '.env', '.git/config', 
+    'phpinfo.php', 'backup.sql', 'admin/', 'login.php', 'wp-admin',
+    '.ssh/id_rsa', 'api/v1', 'server-status'
+];
+
+async function runActiveScanner() {
+    const domain = document.getElementById('active-input').value.trim();
+    const resultsContainer = document.getElementById('scanner-results');
+    
+    if (!domain) return;
+    
+    // Ensure the domain has a protocol for the links to work properly
+    const baseUrl = domain.startsWith('http') ? domain : `https://${domain}`;
+    const cleanDomain = domain.replace(/^https?:\/\//, '');
+
+    resultsContainer.innerHTML = '<div style="color: var(--accent); margin-bottom: 10px;">Scanning for live paths (Only positive hits will show)...</div>';
+
+    for (const path of commonLeaks) {
+        const result = await probePath(cleanDomain, path);
+        
+        if (result.status === 'PROBED') {
+            const fullUrl = `${baseUrl}/${path}`;
+            const item = document.createElement('div');
+            
+            item.style.cssText = "display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bg2); padding: 10px; background: rgba(63, 185, 80, 0.05); border-radius: 4px; margin-bottom: 6px;";
+            
+            item.innerHTML = `
+                <div style="display: flex; flex-direction: column; gap: 2px;">
+                    <span style="color: var(--text0); font-weight: bold; font-size: 13px;">/${path}</span>
+                    <span style="color: var(--text2); font-size: 10px; font-family: monospace;">${fullUrl}</span>
+                </div>
+                <a href="${fullUrl}" target="_blank" class="tb-btn btn-purple" 
+                   style="text-decoration: none; padding: 4px 12px; font-size: 11px; white-space: nowrap;">
+                   Visit ↗
+                </a>
+            `;
+            
+            resultsContainer.appendChild(item);
+            
+            // Auto-scroll
+            const activePanel = document.getElementById('active-panel');
+            activePanel.scrollTop = activePanel.scrollHeight;
+        }
+    }
+
+    const doneMsg = document.createElement('div');
+    doneMsg.style.cssText = "color: var(--text2); font-size: 11px; margin-top: 15px; text-align: center; border-top: 1px dashed var(--border); padding-top: 10px;";
+    doneMsg.innerText = "Scan complete.";
+    resultsContainer.appendChild(doneMsg);
+}
 
 function executeOsint() {
     const val = document.getElementById('osint-input').value.trim();
@@ -792,7 +884,7 @@ function switchTab(tab) {
   currentTab = tab;
 
   // List every tab key you have
-  const tabs = ['notes', 'url', 'ip', 'osint', 'exploit'];
+  const tabs = ['notes', 'url', 'ip', 'osint', 'active', 'exploit'];
 
   tabs.forEach(t => {
       // 1. Handle Button Styling
