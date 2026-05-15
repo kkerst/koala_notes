@@ -426,14 +426,19 @@ body {
 
     <div style="display: flex; gap: 20px; align-items: flex-start;">
       <div style="width: 160px; display: flex; flex-direction: column; gap: 6px;">
-          <button class="tb-btn" id="rs-btn-all" onclick="filterReverseShells('all')" style="width:100%; text-align:left;">All Shells</button>
+        <button class="tb-btn" id="rs-btn-all" onclick="filterReverseShells('all')" style="width:100%; text-align:left;">All Shells</button>
         <button class="tb-btn" id="rs-btn-linux" onclick="filterReverseShells('linux')" style="width:100%; text-align:left;">Linux / Bash</button>
         <button class="tb-btn" id="rs-btn-windows" onclick="filterReverseShells('windows')" style="width:100%; text-align:left;">Windows / PS</button>
         <button class="tb-btn" id="rs-btn-script" onclick="filterReverseShells('script')" style="width:100%; text-align:left;">Scripting Engines</button>
+        <input type="text" id="rs-search" placeholder="search shells..."
+          style="margin-top: 4px; width: 100%; background: var(--bg2); border: 1px solid var(--border);
+                 color: var(--text0); font-size: 11px; padding: 6px 10px; border-radius: 4px;
+                 outline: none; font-family: inherit;"
+          oninput="updateReverseShells()">
       </div>
 
-        <div id="reverse-shells-container" style="flex: 1; display: flex; flex-direction: column; gap: 16px;"></div>
-      </div>
+      <div id="reverse-shells-container" style="flex: 1; display: flex; flex-direction: column; gap: 16px;"></div>
+    </div>
     </div><!-- end rshells-panel -->
 
       <div id="exploit-panel" style="flex: 1; display: none; flex-direction: column; gap: 20px; padding: 20px 24px; overflow-y: auto; background: var(--bg0);">
@@ -666,8 +671,11 @@ function updateReverseShells() {
     const targetBox = document.getElementById('reverse-shells-container');
     targetBox.innerHTML = '';
 
+    const searchTerm = (document.getElementById('rs-search')?.value || '').toLowerCase().trim();
+
     shellBlueprints.forEach((bp, idx) => {
         if (activeShellCat !== 'all' && bp.cat !== activeShellCat) return;
+        if (searchTerm && !bp.name.toLowerCase().includes(searchTerm) && !bp.tmpl.toLowerCase().includes(searchTerm)) return;
 
         // 1. Generate the clean, true RAW layout string with user variables replaced
         let raw = bp.tmpl.replace(/{LHOST}/g, lhost).replace(/{LPORT}/g, lport);
@@ -728,6 +736,8 @@ function toggleShellEnc(btn, enc, idx) {
 
 function filterReverseShells(cat) {
     activeShellCat = cat;
+    const s = document.getElementById('rs-search');
+    if (s) s.value = '';
     updateReverseShells();
 }
 
