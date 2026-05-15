@@ -252,7 +252,7 @@ body {
   <button id="tab-url" class="tb-btn" onclick="switchTab('url')">encoder</button>
   <button id="tab-ip" class="tb-btn" onclick="switchTab('ip')">ip lookup</button>
   <button id="tab-osint" class="tb-btn" onclick="switchTab('osint')">osint hub</button>
-  <button id="tab-active" class="tb-btn" onclick="switchTab('active')">active recon</button>
+
   <button id="tab-exploit" class="tb-btn" onclick="switchTab('exploit')">exploit search</button>
   <div class="tb-sep"></div>
   <button id="new-note-btn" class="tb-btn" onclick="newNote()">+ note</button>
@@ -411,13 +411,24 @@ body {
             <h2 style="color: var(--red); font-size: 18px;">Active Reconnaissance</h2>
             <p style="font-size: 12px; color: var(--text2);">Direct interaction tools. Note: These actions are visible in server logs. May result in false positives.</p>
           </div>
-        
-          <div style="display: flex; gap: 12px; background: var(--bg1); padding: 18px; border-radius: 8px; border: 1px solid var(--border); align-items: center;">
-            <input type="text" id="active-input" placeholder="Enter target domain (e.g. example.com)..." 
-                   style="flex: 1; background: var(--bg2); border: 1px solid var(--border); color: var(--text0); padding: 12px 15px; border-radius: 6px; outline: none;">
-            <button class="tb-btn btn-purple" style="padding: 12px 25px; height: 44px; border-color: var(--red) !important;" onclick="runActiveScanner()">
-                Start Path Discovery
-            </button>
+
+          <div style="display: flex; flex-direction: column; gap: 12px; background: var(--bg1); padding: 18px; border-radius: 8px; border: 1px solid var(--border);">
+            <div style="display: flex; gap: 12px; align-items: center;">
+              <input type="text" id="active-input" placeholder="Enter target domain (e.g. example.com)..." style="flex: 1; background: var(--bg2); border: 1px solid var(--border); color: var(--text0); padding: 12px 15px; border-radius: 6px; outline: none;">
+      
+              <button class="tb-btn btn-purple" style="padding: 12px 25px; height: 44px; border-color: var(--red) !important;" onclick="runActiveScanner()">
+                  Start Path Discovery
+              </button>
+            </div>
+    
+            <div style="display: flex; align-items: center; gap: 10px; border-top: 1px dashed var(--border); padding-top: 12px; margin-top: 4px;">
+              <span style="font-size: 11px; color: var(--text1);">Wordlist:</span>
+              <button class="tb-btn" style="font-size: 11px; padding: 4px 12px;" onclick="document.getElementById('wordlist-file').click()">
+                Load Custom File (.txt)
+              </button>
+              <input type="file" id="wordlist-file" accept=".txt" style="display:none" onchange="loadCustomWordlist(event)">
+              <span id="wordlist-status" style="font-size: 11px; color: var(--text2); font-family: monospace;">Default list loaded (15 paths)</span>
+            </div>
           </div>
 
           <div id="active-content">
@@ -426,25 +437,6 @@ body {
             </div>
           </div>
         </div>
-
-	<div id="exploit-panel" style="flex: 1; display: none; flex-direction: column; gap: 20px; padding: 20px 24px; overflow-y: auto; background: var(--bg0);">
-	  <div style="border-bottom: 1px solid var(--border); padding-bottom: 15px;">
-	    <h2 style="color: var(--accent); font-size: 18px;">Exploit Database Search</h2>
-	    <p style="font-size: 12px; color: var(--text2);">Search the major exploit repositories simultaneously.</p>
-	  </div>
-
-	  <div style="display: flex; gap: 12px; background: var(--bg1); padding: 18px; border-radius: 8px; border: 1px solid var(--border); align-items: center;">
-	    <input type="text" id="exploit-query" placeholder="e.g. EternalBlue, WordPress 5.0, CVE-2023-..." 
-	           style="flex: 1; background: var(--bg2); border: 1px solid var(--border); color: var(--text0); padding: 12px 15px; border-radius: 6px; outline: none;"
-	           onkeypress="if(event.key==='Enter') runExploitSearch()">
-	    <button class="tb-btn btn-purple" style="padding: 12px 25px; height: 44px;" onclick="runExploitSearch()">Search DBs</button>
-	  </div>
-
-	  <div id="exploit-results-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; margin-top: 10px;">
-	    <!-- Cards will be generated here -->
-	  </div>
-	</div>
-
 
     </div>
 
@@ -520,20 +512,71 @@ const osintSources = {
 
 async function probePath(domain, path) {
     try {
-        // 'no-cors' allows the request to reach the server, 
-        // but the browser hides the response body/status.
-        await fetch(`https://${domain}/${path}`, { 
-            method: 'GET', // Using GET can sometimes be more reliable than HEAD for no-cors
-            mode: 'no-cors',
+        // 1. Clean the domain input (remove trailing slashes and hash symbols)
+        let cleanDomain = domain.split('#')[0].replace(/\/+$/, '');
+        if (!cleanDomain.startsWith('http')) {
+            cleanDomain = `https://${cleanDomain}`;
+        }
+
+        // 2. Clean the path input (remove leading slashes)
+        const cleanPath = path.replace(/^\/+/, '');
+        const targetUrl = `${cleanDomain}/${cleanPath}`;
+
+        // 3. Define the CORS proxy
+        // Using a public demo instance of cors-anywhere for explanation:
+        const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+        
+        // Remove 'mode: no-cors' so we can actually inspect the response status!
+        const response = await fetch(proxyUrl + targetUrl, { 
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
             cache: 'no-cache'
         });
         
-        // If the fetch didn't throw an error, we consider it a hit
-        return { path, status: 'PROBED', color: 'var(--green)' };
+        // Now we can read the exact code because the proxy bypasses the CORS wall
+        return { path, status: response.status, url: targetUrl };
     } catch (e) {
-        // Network errors, DNS failures, or refused connections go here
-        return { path, status: 'FAILED' };
+        return { path, status: 'CONN_ERR', url: '' };
     }
+}
+
+// This will hold whatever paths we are currently scanning against
+let activeDiscoveryList = [
+    'config.php', '.htaccess', 'sitemap.xml', 'wp-config.php', '.env', '.git/config', 
+    'phpinfo.php', 'backup.sql', 'admin/', 'login.php', 'wp-admin',
+    '.ssh/id_rsa', 'api/v1', 'server-status'
+];
+
+// Handles reading the text file line by line
+function loadCustomWordlist(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const text = e.target.result;
+        
+        // Split by lines, trim spaces, and filter out empty lines or comments starting with #
+        const lines = text.split(/\r?\n/)
+                          .map(line => line.trim())
+                          .filter(line => line.length > 0 && !line.startsWith('#'));
+
+        if (lines.length === 0) {
+            alert("The selected file didn't contain any valid paths.");
+            return;
+        }
+
+        // Clean up leading slashes because probePath prepends it dynamically
+        activeDiscoveryList = lines.map(line => line.startsWith('/') ? line.substring(1) : line);
+        
+        // Update UI Status indicator
+        document.getElementById('wordlist-status').textContent = `Custom list loaded (${activeDiscoveryList.length} paths)`;
+        document.getElementById('wordlist-status').style.color = 'var(--green)';
+    };
+    
+    reader.readAsText(file);
 }
 
 const commonLeaks = [
@@ -548,27 +591,32 @@ async function runActiveScanner() {
     
     if (!domain) return;
     
-    // Ensure the domain has a protocol for the links to work properly
-    const baseUrl = domain.startsWith('http') ? domain : `https://${domain}`;
-    const cleanDomain = domain.replace(/^https?:\/\//, '');
+    resultsContainer.innerHTML = '<div style="color: var(--accent); margin-bottom: 10px;">Scanning target (Showing custom filtered status codes)...</div>';
 
-    resultsContainer.innerHTML = '<div style="color: var(--accent); margin-bottom: 10px;">Scanning for live paths (Only positive hits will show)...</div>';
+    // Loop through your paths list (activeDiscoveryList if you added the wordlist feature)
+    const pathsToScan = typeof activeDiscoveryList !== 'undefined' ? activeDiscoveryList : commonLeaks;
 
-    for (const path of commonLeaks) {
-        const result = await probePath(cleanDomain, path);
+    for (const path of pathsToScan) {
+        const result = await probePath(domain, path);
         
-        if (result.status === 'PROBED') {
-            const fullUrl = `${baseUrl}/${path}`;
+        // FILTER: Only show successful hits (200) or explicit authentication blocks (403/401)
+        if (result.status === 200 || result.status === 403 || result.status === 401) {
             const item = document.createElement('div');
             
-            item.style.cssText = "display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bg2); padding: 10px; background: rgba(63, 185, 80, 0.05); border-radius: 4px; margin-bottom: 6px;";
+            // Color code the status badge
+            const badgeColor = result.status === 200 ? 'var(--green)' : 'var(--red)';
+            
+            item.style.cssText = "display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bg2); padding: 10px; background: rgba(255,255,255,0.02); border-radius: 4px; margin-bottom: 6px;";
             
             item.innerHTML = `
                 <div style="display: flex; flex-direction: column; gap: 2px;">
-                    <span style="color: var(--text0); font-weight: bold; font-size: 13px;">/${path}</span>
-                    <span style="color: var(--text2); font-size: 10px; font-family: monospace;">${fullUrl}</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="background: ${badgeColor}; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 3px; font-weight: bold;">${result.status}</span>
+                        <span style="color: var(--text0); font-weight: bold; font-size: 13px;">/${path}</span>
+                    </div>
+                    <span style="color: var(--text2); font-size: 10px; font-family: monospace;">${result.url}</span>
                 </div>
-                <a href="${fullUrl}" target="_blank" class="tb-btn btn-purple" 
+                <a href="${result.url}" target="_blank" class="tb-btn btn-purple" 
                    style="text-decoration: none; padding: 4px 12px; font-size: 11px; white-space: nowrap;">
                    Visit ↗
                 </a>
@@ -576,7 +624,6 @@ async function runActiveScanner() {
             
             resultsContainer.appendChild(item);
             
-            // Auto-scroll
             const activePanel = document.getElementById('active-panel');
             activePanel.scrollTop = activePanel.scrollHeight;
         }
@@ -1225,8 +1272,6 @@ function runExploitSearch() {
         grid.appendChild(card);
     });
 }
-
-
 
 // ── Utils & Shortcuts ──────────────────────────────────────────────────────
 function genId() { return Math.random().toString(36).slice(2, 10); }
