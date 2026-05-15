@@ -408,35 +408,53 @@ body {
 
 	<div id="rshells-panel" style="flex: 1; display: none; flex-direction: column; gap: 20px; padding: 20px 24px; overflow-y: auto; background: var(--bg0);">
   
-	  <div style="border-bottom: 1px solid var(--border); padding-bottom: 15px;">
-	    <h2 style="color: var(--red); font-size: 18px;">Reverse Shell Generator</h2>
-	    <p style="font-size: 12px; color: var(--text2);">Dynamic execution sequences. Alter parameters below to rewrite all reverse shells simultaneously.</p>
-	  </div>
-
-	  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; background: var(--bg1); padding: 18px; border-radius: 8px; border: 1px solid var(--border);">
-	    <div style="display: flex; flex-direction: column; gap: 4px;">
- 	     <label style="font-size: 11px; color: var(--text1); font-weight: bold;">LHOST (Attacker IP)</label>
-  	    <input type="text" id="rs-lhost" value="10.10.10.10" oninput="updateReverseShells()" style="background: var(--bg2); border: 1px solid var(--border); color: var(--text0); padding: 8px 12px; border-radius: 4px; outline: none; font-family: monospace;">
- 	   </div>
-  	  <div style="display: flex; flex-direction: column; gap: 4px;">
-   	   <label style="font-size: 11px; color: var(--text1); font-weight: bold;">LPORT (Attacker Port)</label>
-   	   <input type="text" id="rs-lport" value="4444" oninput="updateReverseShells()" style="background: var(--bg2); border: 1px solid var(--border); color: var(--text0); padding: 8px 12px; border-radius: 4px; outline: none; font-family: monospace;">
-  	  </div>
- 	 </div>
-
- 	 <div style="display: flex; gap: 20px; align-items: flex-start;">
- 	   <div style="width: 160px; display: flex; flex-direction: column; gap: 6px;">
-  	    <button class="tb-btn" id="rs-btn-all" onclick="filterReverseShells('all')" style="width:100%; text-align:left;">All Shells</button>
-   	   <button class="tb-btn" id="rs-btn-linux" onclick="filterReverseShells('linux')" style="width:100%; text-align:left;">Linux / Bash</button>
-   	   <button class="tb-btn" id="rs-btn-windows" onclick="filterReverseShells('windows')" style="width:100%; text-align:left;">Windows / PS</button>
-   	   <button class="tb-btn" id="rs-btn-script" onclick="filterReverseShells('script')" style="width:100%; text-align:left;">Scripting Engines</button>
-  	  </div>
-
-  	  <div id="reverse-shells-container" style="flex: 1; display: flex; flex-direction: column; gap: 16px;"></div>
- 	 </div>
-	</div>
-
+    <div style="border-bottom: 1px solid var(--border); padding-bottom: 15px;">
+      <h2 style="color: var(--accent); font-size: 18px;">Reverse Shell Generator</h2>
+      <p style="font-size: 12px; color: var(--text2);">Dynamic execution sequences. Alter parameters below to rewrite all reverse shells simultaneously.</p>
     </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; background: var(--bg1); padding: 18px; border-radius: 8px; border: 1px solid var(--border);">
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+      <label style="font-size: 11px; color: var(--text1); font-weight: bold;">LHOST (Attacker IP)</label>
+        <input type="text" id="rs-lhost" value="10.10.10.10" oninput="updateReverseShells()" style="background: var(--bg2); border: 1px solid var(--border); color: var(--text0); padding: 8px 12px; border-radius: 4px; outline: none; font-family: monospace;">
+    </div>
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+      <label style="font-size: 11px; color: var(--text1); font-weight: bold;">LPORT (Attacker Port)</label>
+      <input type="text" id="rs-lport" value="4444" oninput="updateReverseShells()" style="background: var(--bg2); border: 1px solid var(--border); color: var(--text0); padding: 8px 12px; border-radius: 4px; outline: none; font-family: monospace;">
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 20px; align-items: flex-start;">
+      <div style="width: 160px; display: flex; flex-direction: column; gap: 6px;">
+          <button class="tb-btn" id="rs-btn-all" onclick="filterReverseShells('all')" style="width:100%; text-align:left;">All Shells</button>
+        <button class="tb-btn" id="rs-btn-linux" onclick="filterReverseShells('linux')" style="width:100%; text-align:left;">Linux / Bash</button>
+        <button class="tb-btn" id="rs-btn-windows" onclick="filterReverseShells('windows')" style="width:100%; text-align:left;">Windows / PS</button>
+        <button class="tb-btn" id="rs-btn-script" onclick="filterReverseShells('script')" style="width:100%; text-align:left;">Scripting Engines</button>
+      </div>
+
+        <div id="reverse-shells-container" style="flex: 1; display: flex; flex-direction: column; gap: 16px;"></div>
+      </div>
+    </div><!-- end rshells-panel -->
+
+      <div id="exploit-panel" style="flex: 1; display: none; flex-direction: column; gap: 20px; padding: 20px 24px; overflow-y: auto; background: var(--bg0);">
+        <div style="border-bottom: 1px solid var(--border); padding-bottom: 15px;">
+          <h2 style="color: var(--accent); font-size: 18px;">Exploit Database Router</h2>
+          <p style="font-size: 12px; color: var(--text2);">Cross-reference vulnerabilities across public exploit repositories.</p>
+        </div>
+        <div style="display: flex; gap: 12px; background: var(--bg1); padding: 18px; border-radius: 8px; border: 1px solid var(--border); align-items: center;">
+          <input type="text" id="exploit-query" placeholder="CVE-2023-38606, eternalblue, wordpress 6.0..."
+                 style="flex: 1; background: var(--bg2); border: 1px solid var(--border); color: var(--text0); padding: 12px 15px; border-radius: 6px; outline: none; font-family: inherit;"
+                 onkeypress="if(event.key==='Enter') runExploitSearch()">
+          <button class="tb-btn btn-purple" style="padding: 12px 25px; height: 44px;" onclick="runExploitSearch()">
+            Query Repositories
+          </button>
+        </div>
+        <div id="exploit-results-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px;">
+          <div class="url-tip">Enter a vulnerability signature, software name, or CVE identifier above to construct your weaponization links.</div>
+        </div>
+      </div>
+
+    </div><!-- end note-area -->
 
     <!-- Status bar -->
     <div id="status-bar">
@@ -867,7 +885,7 @@ function init() {
 
   render();
   updateEditor();
-  attachListeners(); 
+  attachListeners();
 }
 
 function loadDefaults() {
@@ -1029,28 +1047,33 @@ function updateEditor() {
 function switchTab(tab) {
   currentTab = tab;
 
-  // List every tab key you have
-  const tabs = ['notes', 'url', 'ip', 'osint', 'exploit', 'hash', 'rshells'];
+  const tabs = ['notes', 'url', 'ip', 'osint', 'exploit', 'rshells'];
 
   tabs.forEach(t => {
-      // 1. Handle Button Styling
       const btn = document.getElementById(`tab-${t}`);
-      if (btn) {
-          // Toggle your active class (check if yours is 'active-tab' or 'btn-purple')
-          btn.classList.toggle('btn-purple', tab === t); 
-      }
-      
-      // 2. Handle Panel Visibility
-      // Notes usually uses 'note-editor', others use '[name]-panel'
+      if (btn) btn.classList.toggle('btn-purple', tab === t);
+
       const panelId = (t === 'notes') ? 'note-editor' : `${t}-panel`;
       const panel = document.getElementById(panelId);
-      
-      if (panel) {
-          panel.style.display = (tab === t) ? 'flex' : 'none';
-      }
+      if (panel) panel.style.display = (tab === t) ? 'flex' : 'none';
   });
 
-  // Special case for Leaflet map resizing
+  // Hide the note title bar when not on the notes tab
+  const ti = document.getElementById('note-title-input');
+  if (ti) {
+    if (tab !== 'notes') {
+      ti.style.display = 'none';
+      ti.value = '';
+    } else {
+      const cat = cats.find(c => c.id === activeCat);
+      const note = cat && activeNote ? cat.notes.find(n => n.id === activeNote) : null;
+      if (note) {
+        ti.style.display = 'block';
+        ti.value = note.title || '';
+      }
+    }
+  }
+
   if (tab === 'ip' && map) {
       setTimeout(() => map.invalidateSize(), 200);
   }
