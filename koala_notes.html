@@ -960,6 +960,12 @@ function render() {
   cats.sort((a, b) => a.label.localeCompare(b.label));
 
   cats.forEach(cat => {
+    // Sort notes in alphabetical order
+    cat.notes.sort((a, b) => {
+      const titleA = a.title || 'untitled';
+      const titleB = b.title || 'untitled';
+      return titleA.localeCompare(titleB);
+    });
     // Filter notes based on title OR body content
     const filteredNotes = cat.notes.filter(n => 
         (n.title || '').toLowerCase().includes(searchTerm) || 
