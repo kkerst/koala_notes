@@ -254,6 +254,7 @@ body {
   <button id="tab-osint" class="tb-btn" onclick="switchTab('osint')">osint hub</button>
   <button id="tab-rshells" class="tb-btn" onclick="switchTab('rshells')">reverse shells</button>
   <button id="tab-exploit" class="tb-btn" onclick="switchTab('exploit')">exploit search</button>
+  <button id="tab-obfuscate" class="tb-btn" onclick="switchTab('obfuscate')">obfuscate</button>
   <div class="tb-sep"></div>
   <button id="new-note-btn" class="tb-btn" onclick="newNote()">+ note</button>
   
@@ -459,7 +460,68 @@ body {
         </div>
       </div>
 
-    </div><!-- end note-area -->
+      <!-- Obfuscate Panel -->
+      <div id="obfuscate-panel" style="flex: 1; display: none; flex-direction: column; gap: 14px; padding: 20px 24px; overflow-y: auto; background: var(--bg0);">
+
+        <div style="border-bottom: 1px solid var(--border); padding-bottom: 15px;">
+          <h2 style="color: var(--accent); font-size: 18px;">Code Obfuscator</h2>
+          <p style="font-size: 12px; color: var(--text2);">Obfuscate commands and scripts to evade pattern-based detection.</p>
+        </div>
+
+        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+          <span class="url-section-label" style="margin-bottom:0;">language:</span>
+          <select id="obf-lang" onchange="updateObfButtons(); runObfuscate()"
+            style="background:var(--bg2); color:var(--text0); border:1px solid var(--border);
+                   padding:6px 36px 6px 12px; border-radius:6px; outline:none; cursor:pointer;
+                   font-family:inherit; font-size:12px; appearance:none;
+                   background-image:url(\"data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b949e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e\");
+                   background-repeat:no-repeat; background-position:right 10px center; background-size:1em;">
+            <option value="bash">Bash / Shell</option>
+            <option value="powershell">PowerShell</option>
+            <option value="cmd">Windows CMD</option>
+            <option value="python">Python</option>
+            <option value="php">PHP</option>
+            <option value="javascript">JavaScript</option>
+            <option value="perl">Perl</option>
+            <option value="ruby">Ruby</option>
+          </select>
+
+          <span class="url-section-label" style="margin-bottom:0; margin-left:6px;">technique:</span>
+          <div id="obf-mode-btns" style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="mode-btn sel" id="obf-mode-b64" onclick="setObfMode('b64')">base64 wrap</button>
+            <button class="mode-btn" id="obf-mode-hex" onclick="setObfMode('hex')">hex encode</button>
+            <button class="mode-btn" id="obf-mode-char" onclick="setObfMode('char')">char concat</button>
+            <button class="mode-btn" id="obf-mode-rev" onclick="setObfMode('rev')">reverse</button>
+            <button class="mode-btn" id="obf-mode-var" onclick="setObfMode('var')">var split</button>
+            <button class="mode-btn" id="obf-mode-tick" onclick="setObfMode('tick')">tick insert</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="url-section-label">input — paste your code or command</div>
+          <textarea id="obf-input" placeholder="Paste the command or script you want to obfuscate..."
+            style="width:100%; font-family:inherit; font-size:12px; background:var(--bg1);
+                   border:1px solid var(--border); border-radius:6px; color:var(--text0);
+                   padding:10px 12px; resize:vertical; min-height:120px; outline:none;
+                   transition:border-color 0.1s;"
+            oninput="runObfuscate()" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+        </div>
+
+        <div>
+          <div class="url-output-row">
+            <div class="url-section-label">obfuscated output</div>
+            <button class="copy-btn btn-purple" onclick="copyObfOutput()">copy</button>
+          </div>
+          <div id="obf-output-box"
+            style="width:100%; font-family:inherit; font-size:12px; background:var(--bg1);
+                   border:1px solid var(--border); border-radius:6px; color:var(--green);
+                   padding:10px 12px; min-height:120px; white-space:pre-wrap; word-break:break-all;
+                   cursor:default; line-height:1.6;">result appears here</div>
+        </div>
+
+        <div id="obf-tip" class="url-tip"></div>
+
+      </div><!-- end obfuscate-panel -->
 
     <!-- Status bar -->
     <div id="status-bar">
@@ -759,6 +821,10 @@ switchTab = function(targetTab) {
     originalTabSwitcher(targetTab);
     if (targetTab === 'rshells') {
         updateReverseShells();
+    }
+    if (targetTab === 'obfuscate') {
+        updateObfButtons();
+        runObfuscate();
     }
 }
 
@@ -1063,7 +1129,7 @@ function updateEditor() {
 function switchTab(tab) {
   currentTab = tab;
 
-  const tabs = ['notes', 'url', 'ip', 'osint', 'exploit', 'rshells'];
+  const tabs = ['notes', 'url', 'ip', 'osint', 'exploit', 'rshells', 'obfuscate'];
 
   tabs.forEach(t => {
       const btn = document.getElementById(`tab-${t}`);
@@ -1414,6 +1480,436 @@ function runExploitSearch() {
 // ── Utils & Shortcuts ──────────────────────────────────────────────────────
 function genId() { return Math.random().toString(36).slice(2, 10); }
 function esc(s) { return !s ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── Code Obfuscator ────────────────────────────────────────────────────────
+let obfMode = 'b64';
+
+// Techniques genuinely supported per language — drives button visibility
+const OBF_SUPPORT = {
+  bash:       ['b64','hex','char','rev','var','tick'],
+  powershell: ['b64','hex','char','rev','var','tick'],
+  cmd:        ['var','tick'],
+  python:     ['b64','hex','char','rev','var','tick'],
+  php:        ['b64','hex','char','rev','var','tick'],
+  javascript: ['b64','hex','char','rev','var','tick'],
+  perl:       ['b64','hex','char','rev','var','tick'],
+  ruby:       ['b64','hex','char','rev','var','tick'],
+};
+
+// Per-language, per-technique tip text
+const OBF_TIPS = {
+  b64: {
+    bash:       'Pipes payload through <code>base64 -d</code> and runs it with <code>eval</code>.',
+    powershell: 'Uses UTF-16LE encoding required by <code>-EncodedCommand</code> — not plain UTF-8 base64.',
+    python:     'Outputs a <code>python3 -c</code> one-liner — works on Linux, Mac, and Windows CMD/PS (use <code>python</code> instead of <code>python3</code> if that\'s your install). Decodes with <code>__import__(\'base64\')</code> inline so no separate import is needed.',
+    php:        'Decodes with <code>base64_decode()</code> and runs with <code>eval()</code>.',
+    javascript: 'Decodes with <code>atob()</code> and runs with <code>eval()</code>.',
+    perl:       'Uses <code>MIME::Base64</code> (core since Perl 5.8) to decode, then <code>eval</code> runs it.',
+    ruby:       'Uses stdlib <code>Base64.decode64()</code>, then <code>eval</code> runs it.',
+  },
+  hex: {
+    bash:       'Uses ANSI-C quoting <code>$\'\\xNN\'</code> — bash/ksh/zsh interpret hex escapes natively. Not POSIX sh.',
+    powershell: 'Builds a <code>[byte[]]</code> array, decodes as UTF-8 string, then <code>iex</code> executes.',
+    python:     'Converts with <code>bytes.fromhex()</code>, decodes to string, then <code>exec()</code>.',
+    php:        '<code>pack("H*",...)</code> converts hex string to raw bytes (the actual chars), then <code>eval()</code>.',
+    javascript: '<code>\\xNN</code> hex escapes are valid inside JS double-quoted string literals.',
+    perl:       '<code>pack("H*",...)</code> converts hex to raw bytes, then <code>eval</code> runs the result.',
+    ruby:       '<code>Array#pack("H*")</code> converts hex to binary string, then <code>eval</code> runs it.',
+  },
+  char: {
+    bash:       'Uses octal escapes <code>$\'\\NNN\'</code> inside ANSI-C quoting — bash runs the assembled string directly.',
+    powershell: '<code>[char]N</code> casts int to char; <code>-join</code> assembles the array; <code>iex</code> executes.',
+    python:     '<code>chr()</code> converts each int to a char; <code>join</code> assembles; <code>exec()</code> runs it.',
+    php:        '<code>chr()</code> converts each int; <code>implode</code> assembles; <code>eval()</code> executes.',
+    javascript: '<code>String.fromCharCode()</code> per code point; <code>join</code> assembles; <code>eval()</code> runs it.',
+    perl:       '<code>chr()</code> converts each int; <code>join</code> assembles; <code>eval</code> runs the result.',
+    ruby:       '<code>Integer#chr</code> gives the char; <code>map+join</code> assembles; <code>eval</code> runs it.',
+  },
+  rev: {
+    bash:       '<code>rev</code> (util-linux) reverses stdin line-by-line; output pipes to <code>bash</code>.',
+    powershell: 'Array index <code>[−1..−N]</code> walks the string backwards; <code>-join</code> reassembles; <code>iex</code> executes.',
+    python:     'Hex-encodes the reversed payload — no quotes in the shell argument, works on Windows CMD and Linux/Mac. <code>bytes.fromhex().decode()[::-1]</code> reverses it back; <code>exec()</code> runs it.',
+    php:        '<code>strrev()</code> reverses; <code>eval()</code> executes the reversed string as PHP.',
+    javascript: '<code>.split("").reverse().join("")</code> reverses; <code>eval()</code> executes.',
+    perl:       '<code>scalar reverse</code> reverses a string; <code>eval</code> runs the result.',
+    ruby:       '<code>String#reverse</code> reverses; <code>eval</code> runs the result.',
+  },
+  var: {
+    bash:       'Assigns chunks to named vars; <code>${a}${b}</code> expands them; <code>eval</code> executes the joined string.',
+    powershell: 'Assigns chunks to <code>$vars</code>; <code>$a+$b</code> string concat; <code>iex</code> executes.',
+    python:     'Assigns chunks to variables; <code>+</code> concat; <code>exec()</code> runs the assembled string.',
+    php:        'Assigns chunks to <code>$vars</code>; <code>.</code> concat; <code>eval()</code> executes.',
+    javascript: 'Assigns chunks to <code>var</code>s; <code>+</code> concat; <code>eval()</code> executes.',
+    cmd:        'Native CMD only. <code>SET</code> assigns chunks; <code>setlocal enabledelayedexpansion</code> + <code>!var!</code> expand at runtime; <code>call cmd /c</code> executes. Note: <code>=</code> in payload will break <code>SET</code>.',
+    perl:       'Assigns chunks to <code>my $vars</code>; <code>.</code> concat; <code>eval()</code> runs the assembled string.',
+    ruby:       'Assigns chunks to variables; <code>+</code> concat; <code>eval</code> runs the assembled string.',
+  },
+  tick: {
+    bash:       "Inserts empty string <code>''</code> within identifier tokens — bash treats it as a no-op. e.g. <code>cat</code> → <code>c''at</code>.",
+    powershell: 'Inserts backtick <code>`</code> within unquoted tokens — PS treats it as a no-op. e.g. <code>whoami</code> → <code>wh`oa`mi</code>.',
+    python:     "Splits string literals with <code>+</code> concat — only affects string content, never keywords or identifiers.",
+    php:        "Splits string literals with <code>.</code> concat — only affects string content, never keywords or identifiers.",
+    javascript: 'Replaces letters in identifiers with <code>\\uXXXX</code> unicode escapes (valid per JS spec). String contents are left untouched.',
+    cmd:        'Inserts caret <code>^</code> within identifier tokens — CMD parser discards it silently. e.g. <code>whoami</code> → <code>wh^oa^mi</code>.',
+    perl:       "Splits string literals with <code>.</code> concat — only affects string content, never barewords.",
+    ruby:       "Splits string literals with <code>+</code> concat — only affects string content, never method names.",
+  },
+};
+
+function updateObfButtons() {
+  const lang = document.getElementById('obf-lang').value;
+  const supported = OBF_SUPPORT[lang] || [];
+  if (!supported.includes(obfMode)) obfMode = supported[0];
+  ['b64','hex','char','rev','var','tick'].forEach(x => {
+    const el = document.getElementById('obf-mode-' + x);
+    if (!el) return;
+    el.style.display = supported.includes(x) ? '' : 'none';
+    el.className = 'mode-btn' + (x === obfMode ? ' sel' : '');
+  });
+  // Update tip for current language + mode
+  const tip = document.getElementById('obf-tip');
+  if (tip && OBF_TIPS[obfMode] && OBF_TIPS[obfMode][lang]) {
+    tip.innerHTML = '<strong>' + obfMode.replace('b64','base64 wrap').replace('hex','hex encode').replace('char','char concat').replace('rev','reverse').replace('var','var split').replace('tick','tick insert') + '</strong> — ' + OBF_TIPS[obfMode][lang];
+  } else if (tip) {
+    tip.innerHTML = '';
+  }
+}
+
+function setObfMode(m) {
+  obfMode = m;
+  updateObfButtons();
+  runObfuscate();
+}
+
+function runObfuscate() {
+  const inp = document.getElementById('obf-input');
+  const out = document.getElementById('obf-output-box');
+  if (!inp || !out) return;
+  const code = inp.value;
+  const lang = document.getElementById('obf-lang').value;
+  if (!code.trim()) { out.textContent = 'result appears here'; return; }
+  try {
+    out.textContent = obfuscateCode(code, lang, obfMode);
+  } catch(e) {
+    out.textContent = '[error: ' + e.message + ']';
+  }
+}
+
+function obfuscateCode(code, lang, mode) {
+  // helpers
+  const b64    = btoa(unescape(encodeURIComponent(code)));
+  const rawHex = Array.from(code).map(c => c.charCodeAt(0).toString(16).padStart(2,'0')).join('');
+  const sqEsc  = s => s.replace(/'/g, "'\\''");   // bash single-quote escape
+  const psqEsc = s => s.replace(/'/g, "''");       // PowerShell single-quote escape
+
+  // ── base64 ────────────────────────────────────────────────────────────────
+  if (mode === 'b64') {
+    switch (lang) {
+      case 'bash':
+        // bash/ksh/zsh: echo pipes b64 to base64 -d; eval executes the decoded string
+        return `eval "$(echo '${b64}' | base64 -d)"`;
+      case 'powershell': {
+        // -EncodedCommand requires UTF-16LE base64 (not UTF-8)
+        const buf = new Uint16Array(code.length);
+        for (let i = 0; i < code.length; i++) buf[i] = code.charCodeAt(i);
+        const psb64 = btoa(String.fromCharCode(...new Uint8Array(buf.buffer)));
+        return `powershell -nop -w hidden -EncodedCommand ${psb64}`;
+      }
+      case 'python':
+        // exec() runs statements; eval() only evaluates expressions — exec is correct here
+        return `python3 -c "exec(__import__('base64').b64decode('${b64}').decode())"`;
+      case 'php':
+        // eval() executes PHP code; decoded string must be valid PHP statements
+        return `php -r "eval(base64_decode('${b64}'));"`;
+      case 'javascript':
+        // atob() decodes base64; eval() executes the resulting string
+        return `eval(atob('${b64}'))`;
+      case 'perl':
+        // MIME::Base64 is a Perl core module since 5.8; eval runs the decoded string
+        return `perl -MMIME::Base64 -e 'eval(decode_base64("${b64}"));'`;
+      case 'ruby':
+        // base64 is stdlib; eval() executes the decoded string
+        return `ruby -e "require 'base64'; eval(Base64.decode64('${b64}'))"`;
+      default:
+        return `eval "$(echo '${b64}' | base64 -d)"`;
+    }
+  }
+
+  // ── hex ───────────────────────────────────────────────────────────────────
+  if (mode === 'hex') {
+    const xhex = Array.from(code).map(c => '\\x' + c.charCodeAt(0).toString(16).padStart(2,'0')).join('');
+    switch (lang) {
+      case 'bash':
+        // $'...' is ANSI-C quoting — bash/ksh/zsh interpret \xNN natively; not POSIX sh
+        return `eval $'${xhex}'`;
+      case 'powershell': {
+        // Build byte array, decode as UTF-8 string, then iex executes
+        const hexBytes = Array.from(code).map(c => '0x' + c.charCodeAt(0).toString(16).padStart(2,'0'));
+        return `powershell -nop -w hidden -c "$s=[System.Text.Encoding]::UTF8.GetString([byte[]](${hexBytes.join(',')})); iex $s"`;
+      }
+      case 'python':
+        // bytes.fromhex() converts hex string to bytes; .decode() to str; exec() runs it
+        return `python3 -c "exec(bytes.fromhex('${rawHex}').decode())"`;
+      case 'php':
+        // pack("H*",...) converts a hex string to raw binary (the actual characters)
+        return `php -r "eval(pack('H*','${rawHex}'));"`;
+      case 'javascript':
+        // \xNN escape sequences are valid inside JS double-quoted string literals
+        return `eval("${xhex}")`;
+      case 'perl':
+        // pack('H*',...) is the Perl equivalent of hex-to-bytes; eval runs result
+        return `perl -e "eval pack('H*','${rawHex}');"`;
+      case 'ruby':
+        // Array#pack with 'H*' converts hex to binary string; eval runs it
+        return `ruby -e "eval ['${rawHex}'].pack('H*')"`;
+      default:
+        return `eval $'${xhex}'`;
+    }
+  }
+
+  // ── char concat ───────────────────────────────────────────────────────────
+  if (mode === 'char') {
+    const codes = Array.from(code).map(c => c.charCodeAt(0));
+    switch (lang) {
+      case 'bash': {
+        // $'...' with octal escapes \NNN — bash interprets these natively
+        const octals = codes.map(n => '\\' + n.toString(8).padStart(3,'0')).join('');
+        return `bash -c $'${octals}'`;
+      }
+      case 'powershell':
+        // [char]N casts int to char; -join assembles them; iex executes the result
+        return `iex(-join(${codes.map(n => `[char]${n}`).join(',')}))`;
+      case 'python':
+        // chr(n) gives char from code point; join builds string; exec() runs it
+        return `python3 -c "exec(''.join(chr(c) for c in [${codes.join(',')}]))"`;
+
+      case 'php':
+        // chr() gives char from code point; implode joins; eval() executes
+        return `php -r "eval(implode('',array_map('chr',array(${codes.join(',')}))));"`;
+      case 'javascript':
+        // String.fromCharCode() per code point; join assembles; eval executes
+        return `eval([${codes.join(',')}].map(c=>String.fromCharCode(c)).join(''))`;
+      case 'perl':
+        // chr() gives char from code point; join assembles; eval runs the string
+        return `perl -e "eval join('',map{chr}(${codes.join(',')}));"`;
+      case 'ruby':
+        // Integer#chr returns the character; map+join assembles; eval runs it
+        return `ruby -e "eval [${codes.join(',')}].map{|c|c.chr}.join"`;
+      default: {
+        const octals = codes.map(n => '\\' + n.toString(8).padStart(3,'0')).join('');
+        return `bash -c $'${octals}'`;
+      }
+    }
+  }
+
+  // ── reverse ───────────────────────────────────────────────────────────────
+  if (mode === 'rev') {
+    const rev = code.split('').reverse().join('');
+    // For languages invoked via shell -c/-r/-e with outer double quotes,
+    // JSON.stringify wraps in double quotes which breaks the shell string.
+    // Use single-quote outer shell wrapper; escape internal double quotes with \"
+    const dqEsc = s => s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t');
+    switch (lang) {
+      case 'bash':
+        // rev(1) from util-linux reverses each line of stdin; pipe to bash executes it
+        return `echo '${sqEsc(rev)}' | rev | bash`;
+      case 'powershell': {
+        // PS string[-1..-N] indexes backwards through the string; -join assembles; iex executes
+        const esc = psqEsc(rev);
+        return `iex(-join('${esc}'[-1..-${rev.length}]))`;
+      }
+      case 'python': {
+        // Hex-encode the reversed string so there are zero quotes in the shell argument.
+        // Works on both Windows CMD and Linux/Mac — no quoting issues with any payload.
+        // bytes.fromhex() rebuilds the reversed string; [::-1] flips it; exec() runs it.
+        const revHex = Array.from(rev).map(c => c.charCodeAt(0).toString(16).padStart(2,'0')).join('');
+        return `python3 -c "exec(bytes.fromhex('${revHex}').decode()[::-1])"`;
+      }
+      case 'php': {
+        // Hex-encode reversed string — no quote conflicts in the shell argument
+        const revHex = Array.from(rev).map(c => c.charCodeAt(0).toString(16).padStart(2,'0')).join('');
+        return `php -r "eval(strrev(pack('H*','${revHex}')));"`;
+      }
+      case 'javascript':
+        // Pure JS context — no shell quoting; split/reverse/join; eval() executes
+        return `eval(${JSON.stringify(rev)}.split('').reverse().join(''))`;
+      case 'perl': {
+        // Hex-encode reversed string — no quote conflicts in the shell argument
+        const revHex = Array.from(rev).map(c => c.charCodeAt(0).toString(16).padStart(2,'0')).join('');
+        return `perl -e "eval scalar reverse pack('H*','${revHex}');"`;
+      }
+      case 'ruby': {
+        // Hex-encode reversed string — no quote conflicts in the shell argument
+        const revHex = Array.from(rev).map(c => c.charCodeAt(0).toString(16).padStart(2,'0')).join('');
+        return `ruby -e "eval pack('H*','${revHex}').reverse"`;
+      }
+      default:
+        return `echo '${sqEsc(rev)}' | rev | bash`;
+    }
+  }
+
+  // ── var split ─────────────────────────────────────────────────────────────
+  if (mode === 'var') {
+    const chunkSize = Math.max(4, Math.floor(code.length / 5));
+    const chunks = [];
+    for (let i = 0; i < code.length; i += chunkSize) chunks.push(code.slice(i, i + chunkSize));
+    // Alpha-only names so they're valid identifiers in every language including CMD
+    const vars = chunks.map((_, i) => 'v' + Math.random().toString(36).replace(/[^a-z]/g,'').slice(0,5) + i);
+
+    switch (lang) {
+      case 'bash': {
+        // Single-quoted strings with proper escaping; ${var} expansion; eval executes
+        const assigns = vars.map((v,i) => `${v}='${sqEsc(chunks[i])}'`).join('\n');
+        const expand  = vars.map(v => `\${${v}}`).join('');
+        return `${assigns}\neval "${expand}"`;
+      }
+      case 'powershell': {
+        // Single-quoted PS strings; $a+$b string concat; iex executes
+        const assigns = vars.map((v,i) => `$${v}='${psqEsc(chunks[i])}'`).join('\n');
+        return `${assigns}\niex($${vars.join('+$')})`;
+      }
+      case 'python': {
+        // JSON.stringify gives safe double-quoted strings valid in Python; exec() runs concat
+        const assigns = vars.map((v,i) => `${v}=${JSON.stringify(chunks[i])}`).join('\n');
+        return `${assigns}\nexec(${vars.join('+')})`;
+      }
+      case 'php': {
+        // Double-quoted PHP strings via JSON; . concat operator; eval() executes
+        const assigns = vars.map((v,i) => `$${v}=${JSON.stringify(chunks[i])}`).join(';\n') + ';';
+        return `<?php\n${assigns}\neval($${vars.join('.$')});\n?>`;
+      }
+      case 'javascript': {
+        // var declarations with JSON-safe strings; + concat; eval() executes
+        const assigns = vars.map((v,i) => `var ${v}=${JSON.stringify(chunks[i])}`).join(';\n') + ';';
+        return `${assigns}\neval(${vars.join('+')})`;
+      }
+      case 'cmd': {
+        // Native CMD: SET assigns value; setlocal enabledelayedexpansion for !var! at runtime
+        // call cmd /c executes the assembled command; = in values breaks SET
+        const hasEq = chunks.some(c => c.includes('='));
+        const warn  = hasEq ? 'REM WARNING: payload contains "=" which will break SET assignment\n' : '';
+        const assigns = vars.map((v,i) => `SET ${v}=${chunks[i]}`).join('\n');
+        const concat  = vars.map(v => `!${v}!`).join('');
+        return `@echo off\nsetlocal enabledelayedexpansion\n${warn}${assigns}\nSET _r=${concat}\ncall cmd /c !_r!`;
+      }
+      case 'perl': {
+        // my $v = "..."; . string concat; eval() runs the assembled string
+        const assigns = vars.map((v,i) => `my $${v}=${JSON.stringify(chunks[i])}`).join(';\n') + ';';
+        return `${assigns}\neval($${vars.join('.$')});`;
+      }
+      case 'ruby': {
+        // variable = "..."; + concat; eval runs the assembled string
+        const assigns = vars.map((v,i) => `${v}=${JSON.stringify(chunks[i])}`).join('\n');
+        return `${assigns}\neval ${vars.join('+')}`;
+      }
+      default: {
+        const assigns = vars.map((v,i) => `${v}='${sqEsc(chunks[i])}'`).join('\n');
+        const expand  = vars.map(v => `\${${v}}`).join('');
+        return `${assigns}\neval "${expand}"`;
+      }
+    }
+  }
+
+  // ── tick / no-op insert ───────────────────────────────────────────────────
+  if (mode === 'tick') {
+    switch (lang) {
+      case 'bash':
+        // '' is an empty string literal in bash — inserting WITHIN a word token is a no-op
+        // e.g. cat -> c''at, whoami -> wh''oami, /etc/passwd -> /et''c/pa''sswd
+        // Inserting at spaces would pass '' as an argument — DO NOT insert at spaces
+        return code.replace(/([a-zA-Z])(?=[a-zA-Z])/g,
+          c => Math.random() > 0.55 ? c + "''" : c);
+
+      case 'cmd':
+        // ^ between consecutive alpha chars is silently consumed by the CMD parser
+        // e.g. whoami -> wh^oa^mi   net user -> n^et u^ser
+        // Only between alpha chars — not inside quotes or after operators
+        return code.replace(/([a-zA-Z])(?=[a-zA-Z])/g,
+          c => Math.random() > 0.55 ? c + '^' : c);
+
+      case 'powershell':
+        // Backtick ` between consecutive alpha chars is a no-op in unquoted PS tokens
+        // e.g. whoami -> wh`oa`mi   Invoke-Expression -> In`voke-Ex`pression
+        return code.replace(/([a-zA-Z])(?=[a-zA-Z])/g,
+          c => Math.random() > 0.6 ? c + '`' : c);
+
+      case 'javascript': {
+        // \uXXXX unicode escapes are valid WITHIN JS identifier names per the JS spec
+        // We skip string literal content so those aren't corrupted
+        // e.g. fetch -> \u0066etch, console -> \u0063onsole
+        let result = '';
+        let i = 0;
+        while (i < code.length) {
+          // Pass string literals through unchanged
+          if (code[i] === '"' || code[i] === "'" || code[i] === '`') {
+            const q = code[i]; result += code[i++];
+            while (i < code.length) {
+              if (code[i] === '\\') { result += code[i] + (code[i+1]||''); i += 2; continue; }
+              if (code[i] === q)    { result += code[i++]; break; }
+              result += code[i++];
+            }
+            continue;
+          }
+          // Identifier: randomly replace some letters with \uXXXX
+          if (/[a-zA-Z_$]/.test(code[i])) {
+            let ident = '';
+            while (i < code.length && /[a-zA-Z0-9_$]/.test(code[i])) ident += code[i++];
+            result += Array.from(ident).map(c => {
+              if (/[a-zA-Z]/.test(c) && Math.random() > 0.5)
+                return '\\u' + c.charCodeAt(0).toString(16).padStart(4,'0');
+              return c;
+            }).join('');
+            continue;
+          }
+          result += code[i++];
+        }
+        return result;
+      }
+
+      case 'python':
+        // Only split inside string literals with + concat — never mid-keyword or identifier
+        // 'hel'+'lo' and "hel"+"lo" are valid Python; exec('sys'+'tem("id")') works
+        return code
+          .replace(/"([^"\\]{4,})"/g, (_,s) => { const m=Math.floor(s.length/2); return `"${s.slice(0,m)}" + "${s.slice(m)}"`; })
+          .replace(/'([^'\\]{4,})'/g, (_,s) => { const m=Math.floor(s.length/2); return `'${s.slice(0,m)}' + '${s.slice(m)}'`; });
+
+      case 'php':
+        // Only split inside string literals with . concat — never mid-identifier
+        // 'hel'.'lo' and "hel"."lo" are valid PHP; eval('sys'.'tem("id")') works
+        return code
+          .replace(/"([^"\\]{4,})"/g, (_,s) => { const m=Math.floor(s.length/2); return `"${s.slice(0,m)}"."${s.slice(m)}"`; })
+          .replace(/'([^'\\]{4,})'/g, (_,s) => { const m=Math.floor(s.length/2); return `'${s.slice(0,m)}'.'${s.slice(m)}'`; });
+
+      case 'perl':
+        // Only split inside double-quoted string literals with . concat
+        return code
+          .replace(/"([^"\\]{4,})"/g, (_,s) => { const m=Math.floor(s.length/2); return `"${s.slice(0,m)}"."${s.slice(m)}"`; });
+
+      case 'ruby':
+        // Only split inside string literals with + concat
+        return code
+          .replace(/"([^"\\]{4,})"/g, (_,s) => { const m=Math.floor(s.length/2); return `"${s.slice(0,m)}" + "${s.slice(m)}"`; })
+          .replace(/'([^'\\]{4,})'/g, (_,s) => { const m=Math.floor(s.length/2); return `'${s.slice(0,m)}' + '${s.slice(m)}'`; });
+
+      default:
+        return code.replace(/([a-zA-Z])(?=[a-zA-Z])/g,
+          c => Math.random() > 0.55 ? c + "''" : c);
+    }
+  }
+
+  return code;
+}
+function copyObfOutput() {
+  const t = document.getElementById('obf-output-box').textContent;
+  if (!t || t === 'result appears here') return;
+  navigator.clipboard.writeText(t).then(() => {
+    const btn = document.querySelector('[onclick="copyObfOutput()"]');
+    if (!btn) return;
+    const orig = btn.textContent;
+    btn.textContent = 'copied!';
+    setTimeout(() => btn.textContent = orig, 1200);
+  });
+}
 
 document.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'n') { e.preventDefault(); newNote(); }
